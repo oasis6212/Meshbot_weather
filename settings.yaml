@@ -12,7 +12,7 @@ USER_AGENT_EMAIL: "contact@example.com" #your email, in the event NWS detects ex
 ALERT_LAT: "33.5748" #Location settings for alerts, use your coordinates. No more than 4 digits past the decimal point
 ALERT_LON: "-104.6314"
 ALERT_CHECK_INTERVAL: 300  # Time in seconds between alert checks (default: 300 = 5 minutes)
-MESSAGE_DELAY: 7  # Delay between sending split messages
+MESSAGE_DELAY: 10  # Delay between sending split messages
 ALERT_INCLUDE_DESCRIPTION: false  # Set to false to exclude description from alerts
 ENABLE_7DAY_FORECAST: true  # Set to false to disable 7-day forecast module
 ENABLE_5DAY_FORECAST:  true  # Set to false to disable 5-day forecast module
