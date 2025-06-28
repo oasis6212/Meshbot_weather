@@ -1,0 +1,24 @@
+MYNODES:
+  - "1234567890"
+  - "1234567890"
+DM_MODE: true # if true bot responds to direct messages only. Recommend not changing this
+FIREWALL: false # if True only responds to node ids listed under "MYNODES:"
+DUTYCYCLE: false # if true will limit to 10% duty cycle
+NWS_OFFICE: "HNX" #Location settings for the weather forcast api calls, see readme for details
+NWS_GRID_X: "67"
+NWS_GRID_Y: "80"
+USER_AGENT_APP: "myweatherapp" #used for NWS API calls, can be whatever you want, more unique the better.
+USER_AGENT_EMAIL: "contact@example.com" #your email, in the event NWS detects excess api calls they can contact you
+ALERT_LAT: "33.5748" #Location settings for alerts, use your coordinates. No more than 4 digits past the decimal point
+ALERT_LON: "-104.6314"
+ALERT_CHECK_INTERVAL: 300  # Time in seconds between alert checks (default: 300 = 5 minutes)
+MESSAGE_DELAY: 7  # Delay between sending split messages
+ALERT_INCLUDE_DESCRIPTION: false  # Set to false to exclude description from alerts
+ENABLE_7DAY_FORECAST: true  # Set to false to disable 7-day forecast module
+ENABLE_5DAY_FORECAST:  true  # Set to false to disable 5-day forecast module
+ENABLE_HOURLY_WEATHER: true  # Set to false to disable hourly weather module
+FULL_MENU: true  # When true, includes all weather commands. When false, shows only single message options.
+ENABLE_AUTO_REBOOT: false  # Set to true to enable automatic daily reboot of the connected node
+AUTO_REBOOT_HOUR: 3  # Hour for daily reboot (24-hour format)
+AUTO_REBOOT_MINUTE: 0  # Minute for daily reboot
+REBOOT_DELAY_SECONDS: 10  # Delay in seconds before reboot occurs (recommend not changing this)
