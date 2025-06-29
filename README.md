@@ -76,7 +76,7 @@ Commands below are not listed in the help menu:
 - advertise : When received the bot will send out a message on the public channel introducing itself along with its menu
 command.
 
-## Requirements, Set these up first before installing the program
+## Requirements
 
 - [Python](https://www.python.org/) 3.11 or above 
 - Access to a [Meshtastic](https://meshtastic.org) device 
@@ -85,7 +85,7 @@ command.
 
 ## Meshbot Weather Installation
 
-1. Open your terminal or command prompt, then clone this repository to your local machine:
+1. Open your terminal, then clone this repository to your local machine:
 
 ```
 git clone https://github.com/oasis6212/meshbot_weather.git
@@ -117,7 +117,7 @@ pip install -r requirements.txt
 
 
 ## How to run the program on various operating systems:
-
+Note: The port your meshtastic radio is using may vary from the examples.
 
 
 Example on Linux:
@@ -149,6 +149,21 @@ For a list of avaiable ports:
 ```
 python meshbot.py --help
 ```
+## Running the program in the future
+After you have closed your terminal, you will need to re-activate the virtual environment the next time you want to run the program.
+1. Navigate into the folder 
+```
+cd meshbot_weather
+```
+2. Activate virtual environment
+
+```
+. .venv/bin/activate
+```
+3. Run the program
+
+See above under "How to run the program on various operating systems."
+
 ## Configuration
 
 The ''settings.yaml'' file; it's where you can configure different options. Can be edited in notepad.
@@ -228,7 +243,7 @@ a single message when set to false.
 are on a high-traffic mesh, you may want to disable these.
 
 
-- FULL_MENU: true  # When true, includes all weather commands. When false, shows only forecast options that return a 
+- FULL_MENU: false  # When true, includes all weather commands. When false, shows only forecast options that return a 
 single message.
 
 
