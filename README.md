@@ -45,35 +45,35 @@ Our Mission:
 
 - Utilizes the National Weather Service, the official source for NOAA-issued EAS alerts.
 - Automatically sends severe weather alerts to all devices on the mesh network.
-- Weather forcast: A selection of Multi-day and hourly forcast available on demand.
-- Easily accesible menu that can be called by sending "?" to the bot.
+- Weather forecast: A selection of Multi-day and hourly forecasts available on demand.
+- Easily accessible menu that can be called by sending "?" to the bot.
 - Help message reply when the bot receives an unrecognized instruction.
 - Alert system test command to varify the weather alert api is responding and is configured correctly.
 - Detailed multi-message outputs for deployments on private and low-traffic meshes.
 - Includes a variety of single message options for use on meshes that are high traffic / high utilization.
 - Ability to enforce single message use by disabling multi-message outputs via the settings.yaml file. 
 - Configurable node daily reboot function. Useful if your current firmware is a little less than stable.
-- Forcast are generated for any location. Not limited to towns or cities.
+- Forecasts are generated for any location. Not limited to towns or cities.
+- Optional firewall, when enabled, the bot will only respond to messages from nodes that have been included in its whitelist.
 
 ## Bot interaction
 
-You bot will be accessible through the meshtastic mesh network through the node name. DM the bot/node and issue any of the following commands:
+Your bot will be accessible through the meshtastic mesh network through the node name. DM the bot/node and issue any of the following commands:
 
 - ? : receive a message with a menu of all weather commands.
-- hourly : 24 hour hourly forcast with temp, rain chance, and sky conditions in emoji form. (Multi message return)
-- 5day : 5 day detailed forcast (Multi message return)
-- 7day : 7 day forcast in emoji form (Multi message return)
-- 4day : 4 day simple forcast in emoji form (Single message return)
-- 2day : Today and tomorrows detailed forcast (Single message return)
-- rain : Rain chance every hour for next 24 hours (Single message return)
+- hourly : 24 hour hourly forecast with temp, rain chance, and sky conditions in emoji form (Multi message return)
+- 5day : 5 day detailed forecast (Multi message return)
+- 7day : 7 day forecast in emoji form (Multi message return)
+- 4day : 4 day simple forecast in emoji form (Single message return)
+- 2day : Today and tomorrow's detailed forecast (Single message return)
+- rain : Rain chance every hour for the next 24 hours (Single message return)
 - temp : Predicted temperature every hour for the next 24 hours (Single message return)
 
 
 Commands below are not listed in the help menu:
-- alert-status : Runs a check on the alert system. Returns ok if good or error code if an issue is found.
-- test : bot will return an acknowledgement of message received.
-- tst-detail : as #test above only more detail e.g snr,rssi, hop count (thanks to [rohanki](https://github.com/rohanki))
-- advertise : When received the bot will send out a message on the public channel introducing itself along with its menu
+- alert-status : Runs a check on the alert system. Returns ok if good or error code if an issue is found
+- test : bot will return an acknowledgement of message received
+- advertise : When received, the bot will send out a message on the public channel introducing itself along with its menu
 command.
 
 ## Requirements, Set these up first before installing the program
@@ -174,8 +174,8 @@ Example Content:
 MYNODES:
   - "3663493700"
   - "1234567890"
-DM_MODE: true
 FIREWALL: false
+DM_MODE: true
 DUTYCYCLE: false
 NWS_OFFICE: "LOX" 
 NWS_GRID_X: "155"
@@ -203,16 +203,16 @@ Description
 - MYNODES = A list of nodes (in int/number form) that are permitted to interact with the bot
 
 
-- DM_MODE = true: Only respond to DMs; false: responds to all traffic (recommend keeping this set to true)
-
-
 - FIREWALL = false: if true only responds to MYNODES
+
+
+- DM_MODE = true: Only respond to DMs; false: responds to all traffic (recommend keeping this set to true)
 
 
 - DUTYCYCLE: false: If true, limits itself to 10% Dutycycle
 
 
-- NWS_OFFICE: NWS_GRID_X: NWS_GRID_Y: #settings for the weather forcast api calls, see below to learn how to set up.
+- NWS_OFFICE: NWS_GRID_X: NWS_GRID_Y: #settings for the weather forecast api calls, see below to learn how to set up.
 
 
 - USER_AGENT_APP: "myweatherapp" #used for NWS (National Weather Service) API calls, can be whatever you want, more 
@@ -269,7 +269,8 @@ To get your NWS office and grid coordinates:
 4. Visit (https://api.weather.gov/points/XX.XXXX,YY.YYYY) (using your coordinates)  
 
 Example: https://api.weather.gov/points/36.3741,-119.2702 
-(If you know them, you can replace the coordinates in this link here with yours and skip the first part. Don't enter 
+(If you know them, you can replace the coordinates in this link here with yours and skip the first part. Open the link, 
+go into your browser address bar and replace the coordinates with yours. Then refresh the page. Don't enter 
 more than 4 digits past the decimal point in your latitude and longitude numbers.)
 
 5. Look for the `gridId` (NWS_OFFICE) and `gridX` (NWS_GRID_X),`gridY` (NWS_GRID_Y) values in the response. You will 
@@ -278,10 +279,10 @@ have to scroll down the page some.
 ![](./img/Grid.png)
 
 
-Enter this info into the yaml file.
+Enter this info into the settings.yaml file.
 
-For the alert settings in the yaml file, enter your gps coordinates or use the coordinates you retrieved earlier in this 
-process. Use no more than four digits after the decimal point.
+For the alert settings in the settings.yaml file, enter your gps coordinates or use the coordinates you retrieved 
+earlier in this process. Use no more than four digits after the decimal point.
 
 
 
@@ -289,8 +290,8 @@ process. Use no more than four digits after the decimal point.
 
 To prevent excessive api calls, the bot will check if it currently has the data being requested and if it is
 less than an hour old. If both those conditions are met, the bot will use its catched data. If not, it will refresh the
-weather info. It will not produce more than two api calls per hour for weather forcast. One for hourly data and the 
-other for daily data. If there are no mesh side weather requests, then no api calls are made.
+weather info. It will not produce more than two api calls per hour for weather forecast. One for the hourly data and the 
+other for the daily data. If there are no mesh side weather requests, then no api calls are made.
 
 Alerts are refreshed every five minutes by default. This is configurable via the "settings.yaml" file. Due to the nature
 of the data being requested, this is considered acceptable. The NWS does not post its api call limits, but will throttle
@@ -307,7 +308,7 @@ Most weather api's use a key to identify your specific instance. Instead, the NW
 convenient because you don't have to actually sign up for anything, and instead just use unique info instead. 
 
 The bot will work with the defaults here, but if you run it with these, your api calls will be added up along with 
-everyone else running the defaults. This could cause your API request to be throttled.  
+everyone else running the defaults. This could possibly cause your API request to be throttled.  
 
 
 
