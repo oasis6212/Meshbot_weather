@@ -85,7 +85,7 @@ command.
 
 ## Meshbot Weather Installation
 
-1. Open your terminal, then clone this repository to your local machine:
+1. Open your terminal or command prompt, then clone this repository to your local machine:
 
 ```
 git clone https://github.com/oasis6212/meshbot_weather.git
