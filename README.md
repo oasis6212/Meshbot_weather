@@ -76,7 +76,7 @@ Commands below are not listed in the help menu:
 - advertise : When received the bot will send out a message on the public channel introducing itself along with its menu
 command.
 
-## Requirements
+## Requirements, Set these up first before installing the program
 
 - [Python](https://www.python.org/) 3.11 or above 
 - Access to a [Meshtastic](https://meshtastic.org) device 
@@ -243,7 +243,7 @@ a single message when set to false.
 are on a high-traffic mesh, you may want to disable these.
 
 
-- FULL_MENU: false  # When true, includes all weather commands. When false, shows only forecast options that return a 
+- FULL_MENU: true  # When true, includes all weather commands. When false, shows only forecast options that return a 
 single message.
 
 
