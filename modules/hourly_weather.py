@@ -17,7 +17,9 @@ class EmojiWeatherFetcher:
             "showers": "🌧️",
             "thunderstorm": "⛈️",
             "snow": "🌨️",
-            "fog": "🌫️"
+            "fog": "🌫️",
+            "haze": "🌫️"
+
         }
         self.rain_emoji = "💧"
 

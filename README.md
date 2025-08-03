@@ -3,6 +3,9 @@
 ![Meshbot](img/meshbot_weather.png)
 
 
+
+
+
 ![](img/1.png)
 
 
@@ -28,6 +31,9 @@
 
 
 ![](img/menu.png)
+
+
+![](img/windnew.png)
 
 
 MeshBot Weather is a spinoff of [MeshBot](https://github.com/868meshbot/meshbot) with a detailed focus on weather. Designed to run on a computer or a 
@@ -56,11 +62,19 @@ Our Mission:
 - Forecasts are generated for any location. Not limited to towns or cities.
 - Optional firewall, when enabled, the bot will only respond to messages from nodes that have been included in its whitelist.
 
+
+![](img/newfeatures.png)
+
+
 ## Bot interaction
 
 Your bot will be accessible through the meshtastic mesh network through the node name. DM the bot/node and issue any of the following commands:
 
-- ? : receive a message with a menu of all weather commands.
+
+NOTE: Commands are not case-sensitive.
+
+
+- ? or menu : receive a message with a menu of all weather commands.
 - hourly : 24 hour hourly forecast with temp, rain chance, and sky conditions in emoji form (Multi message return)
 - 5day : 5 day detailed forecast (Multi message return)
 - 7day : 7 day forecast in emoji form (Multi message return)
@@ -68,13 +82,15 @@ Your bot will be accessible through the meshtastic mesh network through the node
 - 2day : Today and tomorrow's detailed forecast (Single message return)
 - rain : Rain chance every hour for the next 24 hours (Single message return)
 - temp : Predicted temperature every hour for the next 24 hours (Single message return)
+- wind : Hourly wind information for next 24 hours (Multi message return)
 
 
 Commands below are not listed in the help menu:
+- alert : Get full alert info for the last-issued alert.
 - alert-status : Runs a check on the alert system. Returns ok if good or error code if an issue is found
 - test : bot will return an acknowledgement of message received
-- advertise : When received, the bot will send out a message on the public channel introducing itself along with its menu
-command.
+- advertise : When received, the bot will message the public channel introducing itself along with its menu command.
+
 
 ## Requirements, Set these up first before installing the program
 
@@ -185,8 +201,10 @@ USER_AGENT_EMAIL: "contact@example.com"
 ALERT_LAT: "34.0522" 
 ALERT_LON: "-118.2433"
 ALERT_CHECK_INTERVAL: 300  
+FIRST_MESSAGE_DELAY: 3 
 MESSAGE_DELAY: 15  
 ALERT_INCLUDE_DESCRIPTION: false 
+ENABLE_FULL_ALERT_COMMAND: true
 ENABLE_7DAY_FORECAST: true  
 ENABLE_5DAY_FORECAST:  true  
 ENABLE_HOURLY_WEATHER: true 
@@ -231,12 +249,21 @@ want alerts for. Make sure you only go up to 4 places past the decimal point on 
 From what I have gathered, they allow up to once a minute for alert checking. Your milage may very. 
 
 
+- FIRST_MESSAGE_DELAY: 3 # Delay in seconds between receiving a request and sending the first message back. This is 
+experimental. Hoping this may help with dropped 1st part of reply's, by giving the network a few seconds to settle down.
+feel free to experiment with different values. 
+
+
 - MESSAGE_DELAY: Delay in seconds between split messages. To short of a delay can cause messages to arrive out of order.
 
 
 - ALERT_INCLUDE_DESCRIPTION: #Set to false to exclude description from alerts. Descriptions will include alot of detail 
 such as every county, town, and area affected. You can expect about 4 or 5 messages when description is set to "true" vs
 a single message when set to false. 
+
+
+- ENABLE_FULL_ALERT_COMMAND: #set to false to disable the "alert" command. Can produce up to 8 messages, may want to
+disable on a high traffic mesh. 
 
 
 - ENABLE_7DAY_FORECAST: ENABLE_5DAY_FORECAST: ENABLE_HOURLY_WEATHER: # These calls produce 2 to 4 messages each. If you
@@ -284,6 +311,14 @@ Enter this info into the settings.yaml file.
 For the alert settings in the settings.yaml file, enter your gps coordinates or use the coordinates you retrieved 
 earlier in this process. Use no more than four digits after the decimal point.
 
+
+## Closing the program
+
+Press "Ctrl + c" once to tell the program to close. The program will command the node to shutdown and give it time to 
+do so.
+Letting the node complete its shutdown sequence will prevent data loss in the node itself.
+
+Pressing "Ctrl + c" twice will force a hard shutdown of the program and connected node. 
 
 
 ## API Handaling details

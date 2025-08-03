@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 
 """
-Weather Bot
+Meshbot Weather
 =======================
 
 meshbot.py: A message bot designed for Meshtastic, providing information from modules upon request:
-* weather forcast
-* weather Alerts
+
 
 Author:
 - Andy
@@ -36,13 +35,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+
+
 import argparse
 import logging
 import threading
 import time
 import yaml
 import datetime
-import random 
+import random
+import signal
+import sys
 
 try:
     import meshtastic.serial_interface
@@ -65,18 +68,20 @@ from modules.weather_data_manager import WeatherDataManager
 from modules.weather_alert_monitor import WeatherAlerts
 from modules.forecast_4day import Forecast4DayFetcher
 from modules.forecast_7day import Forecast7DayFetcher
-
+from modules.wind_24hour import Wind24HourFetcher
 
 UNRECOGNIZED_MESSAGES = [
-    "Oops! I didn't recognize that command. Type '?' to see a list of options.",
-    "I'm not sure what you mean. Type '?' for available commands.",
-    "That command isn't in my vocabulary. Send '?' to see what I understand.",
-    "Hmm, I don't know that one. Send '?' for a list of commands I know.",
-    "Sorry, I didn't catch that. Send '?' to see what commands you can use.",
-    "Well that's definitely not in my programming. Type '?' before we both crash.",
-    "Oh sure, just make up commands. Type '?' for the real ones."
+    "Oops! I didn't recognize that command. Type 'menu' to see a list of options.",
+    "I'm not sure what you mean. Type 'menu' for available commands.",
+    "That command isn't in my vocabulary. Send 'menu' to see what I understand.",
+    "Hmm, I don't know that one. Send 'menu' for a list of commands I know.",
+    "Sorry, I didn't catch that. Send 'menu' to see what commands you can use.",
+    "Well that's definitely not in my programming. Type 'menu' before we both crash.",
+    "Oh sure, just make up commands. Type 'menu' for the real ones."
 ]
 
+
+interface = None
 
 def find_serial_ports():
     ports = [port.device for port in serial.tools.list_ports.comports()]
@@ -97,6 +102,7 @@ MYNODES = ""
 DM_MODE = ""
 FIREWALL = ""
 DUTYCYCLE = ""
+alerts = None
 
 with open("settings.yaml", "r") as file:
     settings = yaml.safe_load(file)
@@ -141,6 +147,7 @@ rain_chance_fetcher = RainChanceFetcher(weather_manager)
 nws_weather_fetcher_5day = NWSWeatherFetcher5Day(weather_manager)
 forecast_4day = Forecast4DayFetcher(weather_manager)
 forecast_7day = Forecast7DayFetcher(weather_manager)
+wind_24hour = Wind24HourFetcher(weather_manager)
 
 
 def get_temperature_24hour():
@@ -216,6 +223,12 @@ def get_forecast_4day():
     return "\n".join(forecast_4day_info)
 
 
+def get_wind_24hour():
+    global wind_24hour_info
+    wind_24hour_info = wind_24hour.get_wind_24hour()
+    return wind_24hour_info
+
+
 def message_listener(packet, interface):
     global transmission_count
     global cooldown
@@ -223,134 +236,209 @@ def message_listener(packet, interface):
     global FIREWALL
     global DUTYCYCLE
     global MYNODE
+    global alerts
 
-    if packet is not None and packet["decoded"].get("portnum") == "TEXT_MESSAGE_APP":
-        message = packet["decoded"]["text"].lower()
-        sender_id = packet["from"]
-        
-        # Check if it's a DM
-        is_direct_message = False
-        if "to" in packet:
-            is_direct_message = str(packet["to"]) == str(MYNODE)
+    try:
+        if packet is not None and packet["decoded"].get("portnum") == "TEXT_MESSAGE_APP":
+            message = packet["decoded"]["text"].lower()
+            sender_id = packet["from"]
+            
+            # Check if it's a DM
+            is_direct_message = False
+            if "to" in packet:
+                is_direct_message = str(packet["to"]) == str(MYNODE)
 
-        # Only log if it's a DM
-        if is_direct_message:
-            logger.info(f"Message {packet['decoded']['text']} from {packet['from']}")
-            logger.info(f"transmission count {transmission_count}")
+            # Only log if it's a DM
+            if is_direct_message:
+                logger.info(f"Message {packet['decoded']['text']} from {packet['from']}")
+                logger.info(f"transmission count {transmission_count}")
 
-        # Enforce DM_MODE
-        if DM_MODE and not is_direct_message:
-            return
+            # Enforce DM_MODE
+            if DM_MODE and not is_direct_message:
+                return
 
-        # firewall logging 
-        if FIREWALL and not any(node in str(packet["from"]) for node in MYNODES):
-            logger.warning(f"Firewall blocked message from {packet['from']}: {message}")
-            return
+            # firewall logging
+            if FIREWALL and not any(node in str(packet["from"]) for node in MYNODES):
+                logger.warning(f"Firewall blocked message from {packet['from']}: {message}")
+                return
 
-        if (transmission_count < 16 or DUTYCYCLE == False):
-            if "test" in message:
-                transmission_count += 1
-                interface.sendText("🟢 ACK", wantAck=True, destinationId=sender_id)
-            elif "?" in message:
-                transmission_count += 1
-                if settings.get('FULL_MENU', True):  # Default to full menu if setting not found
-                    interface.sendText(
-                        "    --Multi-Message--\n"
-                        "hourly - 24h outlook\n"
-                        "7day - 7 day simple\n"
-                        "5day - 5 day detailed\n\n"
-                        "    --Single Message--\n"
-                        "2day - 2 day detailed\n"
-                        "4day - 4 day simple\n"
-                        "rain - 24h precipitation\n"
-                        "temp - 24h temperature\n"
-                        , wantAck=True, destinationId=sender_id)
-                else:
-                    interface.sendText(
-                        "  --Weather Commands--\n"
-                        "2day - 2 day forecast\n"
-                        "4day - 4 day forecast\n"
-                        "temp - 24h temperature\n"
-                        "rain - 24h precipitation"
-                        , wantAck=True, destinationId=sender_id)
-            elif "temp" in message:
-                transmission_count += 1
-                interface.sendText(get_temperature_24hour(), wantAck=True, destinationId=sender_id)
-            elif "2day" in message:
-                transmission_count += 1
-                interface.sendText(get_forecast_2day(), wantAck=True, destinationId=sender_id)
-            elif "hourly" in message:
-                if settings.get('ENABLE_HOURLY_WEATHER', True):
-                    transmission_count += 1
-                    weather_data = get_emoji_weather()
-                    messages = split_message(weather_data)
+            if (transmission_count < 16 or DUTYCYCLE == False):
+                first_message_delay = settings.get('FIRST_MESSAGE_DELAY', 3)
+                subsequent_message_delay = settings.get('MESSAGE_DELAY', 10)
+
+                # Helper function to handle message sequences
+                def send_message_sequence(messages, message_type=""):
                     for i, msg in enumerate(messages):
+                        if i == 0:  # First message
+                            time.sleep(first_message_delay)
                         interface.sendText(msg, wantAck=True, destinationId=sender_id)
-                        if i < len(messages) - 1:
-                            time.sleep(settings.get('MESSAGE_DELAY', 10))
-                else:
-                    interface.sendText("Hourly weather module is disabled.", wantAck=True, destinationId=sender_id)
-            elif "rain" in message:
-                transmission_count += 1
-                interface.sendText(get_rain_chance(), wantAck=True, destinationId=sender_id)
-            elif "5day" in message:
-                if settings.get('ENABLE_5DAY_FORECAST', True):
+                        if i < len(messages) - 1:  # Don't delay after last message
+                            time.sleep(subsequent_message_delay)
+
+                if "test" in message:
                     transmission_count += 1
-                    weather_messages = nws_weather_fetcher_5day.get_daily_weather()
-                    for i, msg in enumerate(weather_messages):
-                        interface.sendText(msg, wantAck=True, destinationId=sender_id)
-                        if i < len(weather_messages) - 1:
-                            time.sleep(settings.get('MESSAGE_DELAY', 10))
-                else:
-                    interface.sendText("5-day forecast module is disabled.", wantAck=True, destinationId=sender_id)
-            elif "4day" in message:
-                transmission_count += 1
-                interface.sendText(get_forecast_4day(), wantAck=True, destinationId=sender_id)
-            elif "advertise" in message:
-                transmission_count += 1
-                interface.sendText(
-                    "Hello, I am a weather bot, DM me \"#?\" for a list of forcast options.",
-                    wantAck=True,
-                    destinationId="^all"
-                )
-            elif "7day" in message:  # Changed from 10day
-                if settings.get('ENABLE_7DAY_FORECAST', True):  # Changed from ENABLE_10DAY_FORECAST
+                    time.sleep(first_message_delay)
+                    interface.sendText(" ACK", wantAck=True, destinationId=sender_id)
+                elif "?" in message or "menu" in message:
                     transmission_count += 1
-                    weather_data = forecast_7day.get_weekly_emoji_weather()
-                    messages = split_message(weather_data, message_type="7day")  # Changed from 10day
-                    for i, msg in enumerate(messages):
-                        interface.sendText(msg, wantAck=True, destinationId=sender_id)
-                        if i < len(messages) - 1:
-                            time.sleep(settings.get('MESSAGE_DELAY', 10))
-                else:
-                    interface.sendText("7-day forecast module is disabled.", wantAck=True, destinationId=sender_id)
-            elif "alert-status" in message:
-                transmission_count += 1
-                interface.sendText(get_weather_alert_status(), wantAck=True, destinationId=sender_id)
-            else:
-                # If it's a DM but doesn't match any command, send a random help message
-                if is_direct_message:
+                    time.sleep(first_message_delay)
+                    if settings.get('FULL_MENU', True):
+                        interface.sendText(
+                            "    --Multi-Message--\n"
+                            "hourly - 24h outlook\n"
+                            "7day - 7 day simple\n"
+                            "5day - 5 day detailed\n"
+                            "wind - 24h wind\n\n"
+                            "    --Single Message--\n"
+                            "2day - 2 day detailed\n"
+                            "4day - 4 day simple\n"
+                            "rain - 24h precipitation\n"
+                            "temp - 24h temperature\n"
+                            , wantAck=True, destinationId=sender_id)
+                    else:
+                        interface.sendText(
+                            "  --Weather Commands--\n"
+                            "2day - 2 day forecast\n"
+                            "4day - 4 day forecast\n"
+                            "temp - 24h temperature\n"
+                            "rain - 24h precipitation"
+                            , wantAck=True, destinationId=sender_id)
+                elif "temp" in message:
+                    transmission_count += 1
+                    time.sleep(first_message_delay)
+                    interface.sendText(get_temperature_24hour(), wantAck=True, destinationId=sender_id)
+                elif "2day" in message:
+                    transmission_count += 1
+                    time.sleep(first_message_delay)
+                    interface.sendText(get_forecast_2day(), wantAck=True, destinationId=sender_id)
+                elif "hourly" in message:
+                    if settings.get('ENABLE_HOURLY_WEATHER', True):
+                        transmission_count += 1
+                        weather_data = get_emoji_weather()
+                        messages = split_message(weather_data)
+                        send_message_sequence(messages)
+                    else:
+                        time.sleep(first_message_delay)
+                        interface.sendText("Hourly weather module is disabled.", wantAck=True, destinationId=sender_id)
+                elif "rain" in message:
+                    transmission_count += 1
+                    time.sleep(first_message_delay)
+                    interface.sendText(get_rain_chance(), wantAck=True, destinationId=sender_id)
+                elif "5day" in message:
+                    if settings.get('ENABLE_5DAY_FORECAST', True):
+                        transmission_count += 1
+                        weather_messages = nws_weather_fetcher_5day.get_daily_weather()
+                        send_message_sequence(weather_messages)
+                    else:
+                        time.sleep(first_message_delay)
+                        interface.sendText("5-day forecast module is disabled.", wantAck=True, destinationId=sender_id)
+                elif "4day" in message:
+                    transmission_count += 1
+                    time.sleep(first_message_delay)
+                    interface.sendText(get_forecast_4day(), wantAck=True, destinationId=sender_id)
+                elif "wind" in message:
+                    transmission_count += 1
+                    weather_data = wind_24hour.get_wind_24hour()
+                    if isinstance(weather_data, list):
+                        weather_text = '\n'.join(weather_data)
+                        messages = split_message(weather_text, max_length=180, message_type="Wind")
+                        send_message_sequence(messages)
+                    else:
+                        time.sleep(first_message_delay)
+                        interface.sendText(weather_data, wantAck=True, destinationId=sender_id)
+                elif "advertise" in message:
                     transmission_count += 1
                     interface.sendText(
-                        random.choice(UNRECOGNIZED_MESSAGES),
+                        "Hello all! I am a weather bot that does weather alerts and forecasts. "
+                        "You can DM me \"?\" for a list of my forecast commands.\n\n"
+                        "For more information, check me out on Github. https://github.com/oasis6212/Meshbot_weather",
                         wantAck=True,
-                        destinationId=sender_id
+                        destinationId="^all"
                     )
+                elif "7day" in message:
+                    if settings.get('ENABLE_7DAY_FORECAST', True):
+                        transmission_count += 1
+                        weather_data = forecast_7day.get_weekly_emoji_weather()
+                        messages = split_message(weather_data, message_type="7day")
+                        send_message_sequence(messages)
+                    else:
+                        time.sleep(first_message_delay)
+                        interface.sendText("7-day forecast module is disabled.", wantAck=True, destinationId=sender_id)
+                elif "alert-status" in message:
+                    transmission_count += 1
+                    interface.sendText(get_weather_alert_status(), wantAck=True, destinationId=sender_id)
+                elif "alert" in message:
+                    transmission_count += 1
+                    if alerts:
+                        if not alerts.broadcast_full_alert(sender_id):
+                            time.sleep(first_message_delay)
+                            if not settings.get('ENABLE_FULL_ALERT_COMMAND', True):
+                                interface.sendText(
+                                    "The full-alert command is disabled in settings.",
+                                    wantAck=True,
+                                    destinationId=sender_id
+                                )
+                            else:
+                                interface.sendText(
+                                    "No active alerts at this time.",
+                                    wantAck=True,
+                                    destinationId=sender_id
+                                )
+                else:
+                    # If it's a DM but doesn't match any command, send a random help message
+                    if is_direct_message:
+                        transmission_count += 1
+                        interface.sendText(
+                            random.choice(UNRECOGNIZED_MESSAGES),
+                            wantAck=True,
+                            destinationId=sender_id
+                        )
 
-        if transmission_count >= 11 and DUTYCYCLE == True:
-            if not cooldown:
-                interface.sendText(
-                    "❌ Bot has reached duty cycle, entering cool down... ❄",
-                    wantAck=False,
+            if transmission_count >= 11 and DUTYCYCLE == True:
+                if not cooldown:
+                    interface.sendText(
+                        "❌ Bot has reached duty cycle, entering cool down... ❄",
+                        wantAck=False,
+                    )
+                    logger.info("Cooldown enabled.")
+                    cooldown = True
+                logger.info(
+                    "Duty cycle limit reached. Please wait before transmitting again."
                 )
-                logger.info("Cooldown enabled.")
-                cooldown = True
-            logger.info(
-                "Duty cycle limit reached. Please wait before transmitting again."
-            )
 
+    except KeyError as e:
+        node_name = interface.getMyNodeInfo().get('user', {}).get('longName', 'Unknown')
+        logger.error(f'Attached node "{node_name}" was unable to decode incoming message, possible key mismatch in its node-database.')
+        return
+
+
+def signal_handler(sig, frame):
+    """Perform a graceful shutdown when CTRL+C is pressed"""
+    global interface
+    logger.info("\nInitiating shutdown...")
+    try:
+        if interface is not None:
+           # logger.info("Sending shutdown command to node...")
+            try:
+                # Send shutdown command
+                interface.localNode.shutdown()
+                # Give the node sufficient time to complete its shutdown process
+                logger.info("Waiting for node to complete shutdown...")
+                time.sleep(17)  # Time delay for node to finish shutting down
+            except Exception as e:
+                logger.error(f"Error sending shutdown command: {e}")
+                
+            logger.info("Closing Meshtastic interface...")
+            interface.close()
+        logger.info("Shutdown complete")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
+    sys.exit(0)
 
 def main():
+    global interface, alerts  # Add alerts to global declaration
+    signal.signal(signal.SIGINT, signal_handler)
+    
     logger.info("Starting program.")
     reset_transmission_count()
     if settings.get('DUTYCYCLE', False):
@@ -358,7 +446,6 @@ def main():
 
     parser = argparse.ArgumentParser(description="Meshbot_Weather a bot for Meshtastic devices")
     parser.add_argument("--port", type=str, help="Specify the serial port to probe")
-    parser.add_argument("--db", type=str, help="Specify DB: mpowered or liam")
     parser.add_argument("--host", type=str, help="Specify meshtastic host (IP address) if using API")
 
     args = parser.parse_args()
@@ -383,7 +470,7 @@ def main():
             logger.info("No serial ports found.")
         exit(0)
 
-    logger.info(f"Press CTRL-C x2 to terminate the program")
+    logger.info(f"Press CTRL-C to terminate the program")
 
     # Create interface
     if args.host:
@@ -472,6 +559,7 @@ def get_my_node_id(interface):
         logger.error(f"Failed to get node info: {e}")
         return ''
 
+
 def get_weather_alert_status():
     """
     Check if the weather alert monitor is functioning properly.
@@ -486,20 +574,21 @@ def get_weather_alert_status():
         headers = {
             "User-Agent": f"({settings.get('USER_AGENT_APP')}, {settings.get('USER_AGENT_EMAIL')})"
         }
-        
+
         # Test the API connection
         response = requests.get(base_url, params=params, headers=headers)
         response.raise_for_status()
-        
+
         # If we get here, the connection is working
         return "🟢 Alert System: Active and monitoring for weather alerts"
-        
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Weather Alert Monitor Status Check Failed: {str(e)}")
         return "🔴 Alert System: Unable to connect to weather service"
     except Exception as e:
         logger.error(f"Weather Alert Monitor Status Check Failed: {str(e)}")
         return "🔴 Alert System: Service interrupted - check logs"
+
 
 if __name__ == "__main__":
     main()
