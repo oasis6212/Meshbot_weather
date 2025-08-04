@@ -418,22 +418,27 @@ def signal_handler(sig, frame):
     logger.info("\nInitiating shutdown...")
     try:
         if interface is not None:
-           # logger.info("Sending shutdown command to node...")
-            try:
-                # Send shutdown command
-                interface.localNode.shutdown()
-                # Give the node sufficient time to complete its shutdown process
-                logger.info("Waiting for node to complete shutdown...")
-                time.sleep(17)  # Time delay for node to finish shutting down
-            except Exception as e:
-                logger.error(f"Error sending shutdown command: {e}")
-                
+            if settings.get('SHUTDOWN_NODE_ON_EXIT', false):
+                logger.info("Sending shutdown command to node...")
+                try:
+                    # Send shutdown command
+                    interface.localNode.shutdown()
+                    # Give the node sufficient time to complete its shutdown process
+                    logger.info("Waiting for node to complete shutdown...")
+                    time.sleep(17)  # Time delay for node to finish shutting down
+                except Exception as e:
+                    logger.error(f"Error sending shutdown command: {e}")
+
+            else:
+                logger.info("Node shutdown disabled in settings, skipping shutdown command")
+
             logger.info("Closing Meshtastic interface...")
             interface.close()
         logger.info("Shutdown complete")
     except Exception as e:
-        logger.error(f"Error during shutdown: {e}")
+        logger.error(f"Error sending shutdown command: {e}")
     sys.exit(0)
+
 
 def main():
     global interface, alerts  # Add alerts to global declaration
