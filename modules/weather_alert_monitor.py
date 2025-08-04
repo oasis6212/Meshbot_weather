@@ -16,6 +16,7 @@ class WeatherAlerts:
         self.check_interval = check_interval
         self.message_delay = message_delay
         self.settings = settings or {}
+        self.channel_index = self.settings.get('ALERT_CHANNEL_INDEX', 0)
         
         # Add storage for current alert data
         self.current_alert = None
@@ -67,7 +68,7 @@ class WeatherAlerts:
                 self.interface.sendText(
                     formatted_msg,
                     wantAck=False,
-                    destinationId='^all'
+                    channelIndex=self.channel_index,
                 )
                 if i < len(messages):  # Don't sleep after last message
                     time.sleep(self.message_delay)
@@ -101,7 +102,8 @@ class WeatherAlerts:
             self.interface.sendText(
                 formatted_msg,
                 wantAck=True,
-                destinationId=destination_id
+                destinationId=destination_id,
+                channelIndex=self.channel_index
             )
             if i < len(messages):
                 time.sleep(self.message_delay)

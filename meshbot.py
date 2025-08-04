@@ -229,6 +229,51 @@ def get_wind_24hour():
     return wind_24hour_info
 
 
+def get_custom_lookup(message):
+    """
+    Parse message like 'loc lat/lon command' and return the weather info for that location.
+    Uses api.weather.gov /points/{lat},{lon} to get grid/office.
+    Supported commands: 2day, 4day, 5day, 7day, hourly, temp, rain, wind
+    """
+    import re
+    import requests
+    match = re.match(r"loc\s+([+-]?\d+\.\d+)/([+-]?\d+\.\d+)\s*(\w+)?", message)
+    if not match:
+        return "Invalid location format. Use 'loc lat/lon [command]'."
+    lat, lon, command = match.groups()
+    # Get NWS grid info
+    try:
+        url = f"https://api.weather.gov/points/{lat},{lon}"
+        resp = requests.get(url, headers={"User-Agent": USER_AGENT})
+        resp.raise_for_status()
+        data = resp.json()
+        office = data['properties']['cwa']
+        grid_x = str(data['properties']['gridX'])
+        grid_y = str(data['properties']['gridY'])
+    except Exception as e:
+        return f"Entered grid is invalid or not found for {lat},{lon}: Not part of NWS coverage area."
+    # Create a temporary weather manager for this location
+    temp_manager = WeatherDataManager(office, grid_x, grid_y, USER_AGENT)
+    # Map commands to fetchers
+    fetchers = {
+        '2day': lambda: Forecast2DayFetcher(temp_manager).get_daily_weather(),
+        '4day': lambda: Forecast4DayFetcher(temp_manager).get_weekly_emoji_weather(),
+        '5day': lambda: NWSWeatherFetcher5Day(temp_manager).get_daily_weather(),
+        '7day': lambda: Forecast7DayFetcher(temp_manager).get_weekly_emoji_weather(),
+        'hourly': lambda: EmojiWeatherFetcher(temp_manager).get_emoji_weather(),
+        'temp': lambda: Temperature24HourFetcher(temp_manager).get_temperature_24hour(),
+        'rain': lambda: RainChanceFetcher(temp_manager).get_rain_chance(),
+        'wind': lambda: Wind24HourFetcher(temp_manager).get_wind_24hour(),
+    }
+    if command and command in fetchers:
+        result = fetchers[command]()
+        if isinstance(result, list):
+            return '\n'.join(result)
+        return str(result)
+    else:
+        return f"Custom location lookup: lat={lat}, lon={lon}, office={office}, grid=({grid_x},{grid_y})\nSupported commands: {', '.join(fetchers.keys())}"
+
+
 def message_listener(packet, interface):
     global transmission_count
     global cooldown
@@ -282,27 +327,39 @@ def message_listener(packet, interface):
                 elif "?" in message or "menu" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
+                    menu_text_1 = "    --Multi-Message--\n" \
+                        "hourly - 24h outlook\n" \
+                        "7day - 7 day simple\n" \
+                        "5day - 5 day detailed\n" \
+                        "wind - 24h wind\n"
+                    menu_text_2 = "    --Single Message--\n" \
+                        "2day - 2 day detailed\n" \
+                        "4day - 4 day simple\n" \
+                        "rain - 24h precipitation\n" \
+                        "temp - 24h temperature\n"
+                    if settings.get('ENABLE_CUSTOM_LOOKUP', False):
+                        menu_text_2 += "loc lat/lon - custom location lookup\n"
                     if settings.get('FULL_MENU', True):
-                        interface.sendText(
-                            "    --Multi-Message--\n"
-                            "hourly - 24h outlook\n"
-                            "7day - 7 day simple\n"
-                            "5day - 5 day detailed\n"
-                            "wind - 24h wind\n\n"
-                            "    --Single Message--\n"
-                            "2day - 2 day detailed\n"
-                            "4day - 4 day simple\n"
-                            "rain - 24h precipitation\n"
-                            "temp - 24h temperature\n"
-                            , wantAck=True, destinationId=sender_id)
+                        interface.sendText(menu_text_1, wantAck=True, destinationId=sender_id)
+                        time.sleep(subsequent_message_delay)
+                        interface.sendText(menu_text_2, wantAck=True, destinationId=sender_id)
                     else:
-                        interface.sendText(
-                            "  --Weather Commands--\n"
-                            "2day - 2 day forecast\n"
-                            "4day - 4 day forecast\n"
-                            "temp - 24h temperature\n"
+                        simple_menu = "  --Weather Commands--\n" \
+                            "2day - 2 day forecast\n" \
+                            "4day - 4 day forecast\n" \
+                            "temp - 24h temperature\n" \
                             "rain - 24h precipitation"
-                            , wantAck=True, destinationId=sender_id)
+                        if settings.get('ENABLE_CUSTOM_LOOKUP', False):
+                            simple_menu += "\nloc lat/lon - custom location lookup"
+                        interface.sendText(simple_menu, wantAck=True, destinationId=sender_id)
+                elif "loc" in message:
+                    transmission_count += 1
+                    time.sleep(first_message_delay)
+                    custom_lookup_result = get_custom_lookup(message)
+                    if custom_lookup_result:
+                        interface.sendText(custom_lookup_result, wantAck=True, destinationId=sender_id)
+                    else:
+                        interface.sendText("Invalid location format. Use 'loc lat/lon'.", wantAck=True, destinationId=sender_id)
                 elif "temp" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
@@ -418,16 +475,17 @@ def signal_handler(sig, frame):
     logger.info("\nInitiating shutdown...")
     try:
         if interface is not None:
-           # logger.info("Sending shutdown command to node...")
             try:
-                # Send shutdown command
-                interface.localNode.shutdown()
-                # Give the node sufficient time to complete its shutdown process
-                logger.info("Waiting for node to complete shutdown...")
-                time.sleep(17)  # Time delay for node to finish shutting down
+                if settings.get('SHUTDOWN_NODE_ON_EXIT', False):
+                    logger.info("Sending shutdown command to node...")
+                    interface.localNode.shutdown()
+                    logger.info("Waiting for node to complete shutdown...")
+                    time.sleep(17)  # Time delay for node to finish shutting down
+                else:
+                    logger.info("Skipping node shutdown; closing interface only...")
+                    time.sleep(2)  # Short delay for cleanup
             except Exception as e:
-                logger.error(f"Error sending shutdown command: {e}")
-                
+                logger.error(f"Error during shutdown cleanup: {e}")
             logger.info("Closing Meshtastic interface...")
             interface.close()
         logger.info("Shutdown complete")
