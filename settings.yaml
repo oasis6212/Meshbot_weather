@@ -3,13 +3,13 @@ MYNODES:
 FIREWALL: false # If true, only responds to node ids listed under "MYNODES:"
 DM_MODE: true  # If true, bot responds to direct messages only. Recommend not changing this
 DUTYCYCLE: false  # If true, will limit to 10% duty cycle
-NWS_OFFICE: "BGM" # Location settings for the weather forecast api calls, see readme for details
-NWS_GRID_X: "84"
-NWS_GRID_Y: "89"
+NWS_OFFICE: "LOX" # Location settings for the weather forecast api calls, see readme for details
+NWS_GRID_X: "155"
+NWS_GRID_Y: "45"
 USER_AGENT_APP: "myweatherapp" # Used for NWS API calls, can be whatever you want, more unique the better.
 USER_AGENT_EMAIL: "contact@example.com" # Your email, in the event NWS detects excess api calls they can contact you
-ALERT_LAT: "37.9807" # Location settings for alerts, use your coordinates. No more than 4 digits past the decimal point
-ALERT_LON: "-101.7526"
+ALERT_LAT: "34.0522" # Location settings for alerts, use your coordinates. No more than 4 digits past the decimal point
+ALERT_LON: "-118.2433"
 ALERT_CHECK_INTERVAL: 300  # Time in seconds between alert checks (default: 300 = 5 minutes)
 FIRST_MESSAGE_DELAY: 0 # Delay in seconds between receiving a request and sending the first message back.
 MESSAGE_DELAY: 15  # Delay in seconds between subsequent messages of a multi-message response

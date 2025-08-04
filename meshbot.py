@@ -483,8 +483,9 @@ def signal_handler(sig, frame):
             interface.close()
         logger.info("Shutdown complete")
     except Exception as e:
-        logger.error(f"Error during shutdown: {e}")
+        logger.error(f"Error sending shutdown command: {e}")
     sys.exit(0)
+
 
 def main():
     global interface, alerts  # Add alerts to global declaration

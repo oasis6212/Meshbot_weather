@@ -213,6 +213,7 @@ ENABLE_AUTO_REBOOT: false
 AUTO_REBOOT_HOUR: 3  
 AUTO_REBOOT_MINUTE: 0  
 REBOOT_DELAY_SECONDS: 10  
+SHUTDOWN_NODE_ON_EXIT: false
 
 ```
 
@@ -288,6 +289,10 @@ for several days. If you encounter this issue, consider enabling the auto-reboot
 changing this.
 
 
+- SHUTDOWN_NODE_ON_EXIT: false #Set to true to shut down the node when you close the program. You will have to manually
+turn the node back on before running the program again.
+
+
 ## How to get your NWS_OFFICE, NWS_GRID_X, and NWS_GRID_Y
 To get your NWS office and grid coordinates:
 1. Go to (https://weather.gov)
@@ -314,11 +319,11 @@ earlier in this process. Use no more than four digits after the decimal point.
 
 ## Closing the program
 
-Press "Ctrl + c" once to tell the program to close. The program will command the node to shutdown and give it time to 
-do so.
+Press "Ctrl + c" once to tell the program to close. If Node shutdown is enabled in the settings.yaml The program will 
+command the node to shutdown and give it time to do so.
 Letting the node complete its shutdown sequence will prevent data loss in the node itself.
 
-Pressing "Ctrl + c" twice will force a hard shutdown of the program and connected node. 
+Pressing "Ctrl + c" twice will force a hard exit of the program.
 
 
 ## API Handaling details
