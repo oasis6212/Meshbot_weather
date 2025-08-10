@@ -251,7 +251,7 @@ such as every county, town, and area affected. You can expect about 4 or 5 messa
 a single message when set to false. 
 
 
--ALERT_CHANNEL_INDEX: #Channel index for weather alerts, default is 0 (first channel)
+- ALERT_CHANNEL_INDEX: #Channel index for weather alerts, default is 0 (first channel)
 
 
 - FIRST_MESSAGE_DELAY: # Delay in seconds between receiving a request and sending the first message back. This is 
@@ -345,7 +345,7 @@ Structure: loc {Latitude/longitude Command} command can be any of the regular co
 To ensure compatibility of your coordinates, only use up to 4 digits past the decimal point like in the example.
 
 
-## API Handaling details
+## API Handling details
 
 To prevent excessive api calls, the bot will check if it currently has the data being requested and if it is
 less than an hour old. If both those conditions are met, the bot will use its catched data. If not, it will refresh the
@@ -390,3 +390,4 @@ This project is neither endorsed by nor supported by Meshtastic.
 Meshtastic® is a registered trademark of Meshtastic LLC. Meshtastic software components are released under various 
 
 licenses, see GitHub for details. No warranty is provided - use at your own risk.
+
