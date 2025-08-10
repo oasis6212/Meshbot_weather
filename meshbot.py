@@ -191,29 +191,26 @@ def reset_cooldown():
     threading.Timer(240.0, reset_cooldown).start()
 
 
-def split_message(message, max_length=175, message_type="Hourly"):
+def split_message(message, max_length=200, message_type="Hourly", start_index=1, total_count=None):
     lines = message.split('\n')
     messages = []
     current_message = []
     current_length = 0
-
     for line in lines:
         line_length = len(line.encode('utf-8')) + (1 if current_message else 0)
-
         if current_length + line_length > max_length:
             messages.append('\n'.join(current_message))
             current_message = []
             current_length = 0
-
         current_message.append(line)
         current_length += line_length
-
     if current_message:
         messages.append('\n'.join(current_message))
-
+    # If total_count is provided, use it for page count
+    if total_count is None:
+        total_count = len(messages)
     for i in range(len(messages)):
-        messages[i] = f"--({i + 1}/{len(messages)}) {message_type}\n" + messages[i]
-
+        messages[i] = f"--({start_index + i}/{total_count}) {message_type}\n" + messages[i]
     return messages
 
 
@@ -227,6 +224,51 @@ def get_wind_24hour():
     global wind_24hour_info
     wind_24hour_info = wind_24hour.get_wind_24hour()
     return wind_24hour_info
+
+
+def get_custom_lookup(message):
+    """
+    Parse message like 'loc lat/lon command' and return the weather info for that location.
+    Uses api.weather.gov /points/{lat},{lon} to get grid/office.
+    Supported commands: 2day, 4day, 5day, 7day, hourly, temp, rain, wind
+    """
+    import re
+    import requests
+    match = re.match(r"loc\s+([+-]?\d+\.\d+)/([+-]?\d+\.\d+)\s*(\w+)?", message)
+    if not match:
+        return "Invalid location format. Use 'loc lat/lon [command]'."
+    lat, lon, command = match.groups()
+    # Get NWS grid info
+    try:
+        url = f"https://api.weather.gov/points/{lat},{lon}"
+        resp = requests.get(url, headers={"User-Agent": USER_AGENT})
+        resp.raise_for_status()
+        data = resp.json()
+        office = data['properties']['cwa']
+        grid_x = str(data['properties']['gridX'])
+        grid_y = str(data['properties']['gridY'])
+    except Exception as e:
+        return f"Entered grid is invalid or not found for {lat},{lon}: Not part of NWS coverage area."
+    # Create a temporary weather manager for this location
+    temp_manager = WeatherDataManager(office, grid_x, grid_y, USER_AGENT)
+    # Map commands to fetchers
+    fetchers = {
+        '2day': lambda: Forecast2DayFetcher(temp_manager).get_daily_weather(),
+        '4day': lambda: Forecast4DayFetcher(temp_manager).get_weekly_emoji_weather(),
+        '5day': lambda: NWSWeatherFetcher5Day(temp_manager).get_daily_weather(),
+        '7day': lambda: Forecast7DayFetcher(temp_manager).get_weekly_emoji_weather(),
+        'hourly': lambda: EmojiWeatherFetcher(temp_manager).get_emoji_weather(),
+        'temp': lambda: Temperature24HourFetcher(temp_manager).get_temperature_24hour(),
+        'rain': lambda: RainChanceFetcher(temp_manager).get_rain_chance(),
+        'wind': lambda: Wind24HourFetcher(temp_manager).get_wind_24hour(),
+    }
+    if command and command in fetchers:
+        result = fetchers[command]()
+        if isinstance(result, list):
+            return '\n'.join(result)
+        return str(result)
+    else:
+        return f"Custom location lookup: lat={lat}, lon={lon}, office={office}, grid=({grid_x},{grid_y})\nSupported commands: {', '.join(fetchers.keys())}"
 
 
 def message_listener(packet, interface):
@@ -278,74 +320,105 @@ def message_listener(packet, interface):
                 if "test" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
+                    # Send the temperature message directly without split_message
                     interface.sendText(" ACK", wantAck=True, destinationId=sender_id)
                 elif "?" in message or "menu" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
+                    menu_text_1 = "    --Multi-Message--\n" \
+                                  "hourly - 24h outlook\n" \
+                                  "7day - 7 day simple\n" \
+                                  "5day - 5 day detailed\n" \
+                                  "wind - 24h wind\n"
+                    menu_text_2 = "    --Single Message--\n" \
+                                  "2day - 2 day detailed\n" \
+                                  "4day - 4 day simple\n" \
+                                  "rain - 24h precipitation\n" \
+                                  "temp - 24h temperature\n"
+                    # Add alert command if enabled
+                    if settings.get('ENABLE_FULL_ALERT_COMMAND', True):
+                        menu_text_2 += "alert - show active alerts\n"
+                    if settings.get('ENABLE_CUSTOM_LOOKUP', False):
+                        menu_text_2 += "loc lat/lon - custom location lookup\n"
                     if settings.get('FULL_MENU', True):
-                        interface.sendText(
-                            "    --Multi-Message--\n"
-                            "hourly - 24h outlook\n"
-                            "7day - 7 day simple\n"
-                            "5day - 5 day detailed\n"
-                            "wind - 24h wind\n\n"
-                            "    --Single Message--\n"
-                            "2day - 2 day detailed\n"
-                            "4day - 4 day simple\n"
-                            "rain - 24h precipitation\n"
-                            "temp - 24h temperature\n"
-                            , wantAck=True, destinationId=sender_id)
+                        combined_menu = menu_text_1 + "\n" + menu_text_2
+                        messages = split_message(combined_menu, message_type="Menu")
+                        send_message_sequence(messages, message_type="Menu")
                     else:
-                        interface.sendText(
-                            "  --Weather Commands--\n"
-                            "2day - 2 day forecast\n"
-                            "4day - 4 day forecast\n"
-                            "temp - 24h temperature\n"
+                        simple_menu = "  --Weather Commands--\n" \
+                            "2day - 2 day forecast\n" \
+                            "4day - 4 day forecast\n" \
+                            "temp - 24h temperature\n" \
                             "rain - 24h precipitation"
-                            , wantAck=True, destinationId=sender_id)
+                        if settings.get('ENABLE_FULL_ALERT_COMMAND', True):
+                            simple_menu += "\nalert - show active alerts"
+                        if settings.get('ENABLE_CUSTOM_LOOKUP', False):
+                            simple_menu += "loc lat/lon - custom location lookup"
+                        messages = split_message(simple_menu, message_type="Menu")
+                        send_message_sequence(messages, message_type="Menu")
+                elif "loc" in message:
+                    transmission_count += 1
+                    time.sleep(first_message_delay)
+                    custom_lookup_result = get_custom_lookup(message)
+                    messages = split_message(str(custom_lookup_result), message_type="Custom")
+                    send_message_sequence(messages, message_type="Custom")
                 elif "temp" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
+                    # Send the temperature message directly without split_message
                     interface.sendText(get_temperature_24hour(), wantAck=True, destinationId=sender_id)
+
                 elif "2day" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
+                    # Send the 2-day forecast directly without split_message
                     interface.sendText(get_forecast_2day(), wantAck=True, destinationId=sender_id)
+
                 elif "hourly" in message:
                     if settings.get('ENABLE_HOURLY_WEATHER', True):
                         transmission_count += 1
                         weather_data = get_emoji_weather()
-                        messages = split_message(weather_data)
-                        send_message_sequence(messages)
+                        messages = split_message(weather_data, message_type="Hourly")
+                        send_message_sequence(messages, message_type="Hourly")
                     else:
                         time.sleep(first_message_delay)
-                        interface.sendText("Hourly weather module is disabled.", wantAck=True, destinationId=sender_id)
+                        messages = split_message("Hourly weather module is disabled.", message_type="Hourly")
+                        send_message_sequence(messages, message_type="Hourly")
                 elif "rain" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
+                    # Send the rain message directly without split_message
                     interface.sendText(get_rain_chance(), wantAck=True, destinationId=sender_id)
+
                 elif "5day" in message:
                     if settings.get('ENABLE_5DAY_FORECAST', True):
                         transmission_count += 1
                         weather_messages = nws_weather_fetcher_5day.get_daily_weather()
-                        send_message_sequence(weather_messages)
+                        messages = split_message('\n'.join(weather_messages), message_type="5day")
+                        send_message_sequence(messages, message_type="5day")
                     else:
                         time.sleep(first_message_delay)
-                        interface.sendText("5-day forecast module is disabled.", wantAck=True, destinationId=sender_id)
+                        messages = split_message("5-day forecast module is disabled.", message_type="5day")
+                        send_message_sequence(messages, message_type="5day")
                 elif "4day" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
+                    # Send the 4-day forecast directly without split_message
                     interface.sendText(get_forecast_4day(), wantAck=True, destinationId=sender_id)
+
                 elif "wind" in message:
                     transmission_count += 1
                     weather_data = wind_24hour.get_wind_24hour()
                     if isinstance(weather_data, list):
                         weather_text = '\n'.join(weather_data)
-                        messages = split_message(weather_text, max_length=180, message_type="Wind")
-                        send_message_sequence(messages)
+                        messages = split_message(weather_text, message_type="Wind")
+                        send_message_sequence(messages, message_type="Wind")
                     else:
+
+
                         time.sleep(first_message_delay)
-                        interface.sendText(weather_data, wantAck=True, destinationId=sender_id)
+                        messages = split_message(weather_data, message_type="Wind")
+                        send_message_sequence(messages, message_type="Wind")
                 elif "advertise" in message:
                     transmission_count += 1
                     interface.sendText(
@@ -355,15 +428,17 @@ def message_listener(packet, interface):
                         wantAck=True,
                         destinationId="^all"
                     )
+
                 elif "7day" in message:
                     if settings.get('ENABLE_7DAY_FORECAST', True):
                         transmission_count += 1
                         weather_data = forecast_7day.get_weekly_emoji_weather()
                         messages = split_message(weather_data, message_type="7day")
-                        send_message_sequence(messages)
+                        send_message_sequence(messages, message_type="7day")
                     else:
                         time.sleep(first_message_delay)
-                        interface.sendText("7-day forecast module is disabled.", wantAck=True, destinationId=sender_id)
+                        messages = split_message("7-day forecast module is disabled.", message_type="7day")
+                        send_message_sequence(messages, message_type="7day")
                 elif "alert-status" in message:
                     transmission_count += 1
                     interface.sendText(get_weather_alert_status(), wantAck=True, destinationId=sender_id)
@@ -373,17 +448,15 @@ def message_listener(packet, interface):
                         if not alerts.broadcast_full_alert(sender_id):
                             time.sleep(first_message_delay)
                             if not settings.get('ENABLE_FULL_ALERT_COMMAND', True):
-                                interface.sendText(
-                                    "The full-alert command is disabled in settings.",
-                                    wantAck=True,
-                                    destinationId=sender_id
+                                messages = split_message(
+                                    "The full-alert command is disabled in settings.", message_type="Alert"
                                 )
+                                send_message_sequence(messages, message_type="Alert")
                             else:
-                                interface.sendText(
-                                    "No active alerts at this time.",
-                                    wantAck=True,
-                                    destinationId=sender_id
+                                messages = split_message(
+                                    "No active alerts at this time.", message_type="Alert"
                                 )
+                                send_message_sequence(messages, message_type="Alert")
                 else:
                     # If it's a DM but doesn't match any command, send a random help message
                     if is_direct_message:
@@ -393,24 +466,13 @@ def message_listener(packet, interface):
                             wantAck=True,
                             destinationId=sender_id
                         )
-
-            if transmission_count >= 11 and DUTYCYCLE == True:
-                if not cooldown:
-                    interface.sendText(
-                        "❌ Bot has reached duty cycle, entering cool down... ❄",
-                        wantAck=False,
-                    )
-                    logger.info("Cooldown enabled.")
-                    cooldown = True
-                logger.info(
-                    "Duty cycle limit reached. Please wait before transmitting again."
-                )
-
     except KeyError as e:
         node_name = interface.getMyNodeInfo().get('user', {}).get('longName', 'Unknown')
         logger.error(f'Attached node "{node_name}" was unable to decode incoming message, possible key mismatch in its node-database.')
         return
-
+    except Exception as e:
+        logger.error(f"Unexpected error in message_listener: {e}")
+        return
 
 def signal_handler(sig, frame):
     """Perform a graceful shutdown when CTRL+C is pressed"""
@@ -418,7 +480,7 @@ def signal_handler(sig, frame):
     logger.info("\nInitiating shutdown...")
     try:
         if interface is not None:
-            if settings.get('SHUTDOWN_NODE_ON_EXIT', false):
+            if settings.get('SHUTDOWN_NODE_ON_EXIT', False):
                 logger.info("Sending shutdown command to node...")
                 try:
                     # Send shutdown command
@@ -438,7 +500,6 @@ def signal_handler(sig, frame):
     except Exception as e:
         logger.error(f"Error sending shutdown command: {e}")
     sys.exit(0)
-
 
 def main():
     global interface, alerts  # Add alerts to global declaration

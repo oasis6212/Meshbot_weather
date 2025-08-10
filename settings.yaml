@@ -1,6 +1,5 @@
 MYNODES:
-  - "1234567890"
-  - "1234567890"
+
 FIREWALL: false # If true, only responds to node ids listed under "MYNODES:"
 DM_MODE: true  # If true, bot responds to direct messages only. Recommend not changing this
 DUTYCYCLE: false  # If true, will limit to 10% duty cycle
@@ -24,4 +23,6 @@ ENABLE_AUTO_REBOOT: false  # Set to true to enable automatic daily reboot of the
 AUTO_REBOOT_HOUR: 3  # Hour for daily reboot (24-hour format)
 AUTO_REBOOT_MINUTE: 0  # Minute for daily reboot
 REBOOT_DELAY_SECONDS: 10  # Delay in seconds before reboot occurs (recommend not changing this)
-SHUTDOWN_NODE_ON_EXIT: false #Set to true to shut down the node when you close the program
+ENABLE_CUSTOM_LOOKUP: true  # Enable/disable custom lat/lon lookup via message
+SHUTDOWN_NODE_ON_EXIT: false  # If true, shutdown node on exit. If false, only close interface
+ALERT_CHANNEL_INDEX: 0  # Channel index for weather alerts, default is 0 (first channel)
