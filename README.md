@@ -63,7 +63,7 @@ Our Mission:
 - Optional firewall, when enabled, the bot will only respond to messages from nodes that have been included in its whitelist.
 
 
-![](img/newfeatures.png)
+![](img/Newfeatures.png)
 
 
 Thanks [davidfries](https://github.com/davidfries)!
@@ -388,4 +388,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 This project is neither endorsed by nor supported by Meshtastic.
 
 Meshtastic® is a registered trademark of Meshtastic LLC. Meshtastic software components are released under various 
+
 licenses, see GitHub for details. No warranty is provided - use at your own risk.
