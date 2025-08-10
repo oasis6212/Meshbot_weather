@@ -1,20 +1,21 @@
 MYNODES:
-
+  - "1234567890" #these are examples, fill in with your node numbers if needed, you can add lines as needed.
+  - "1234567890"
 FIREWALL: false # If true, only responds to node ids listed under "MYNODES:"
 DM_MODE: true  # If true, bot responds to direct messages only. Recommend not changing this
 DUTYCYCLE: false  # If true, will limit to 10% duty cycle
-NWS_OFFICE: "LOX" # Location settings for the weather forecast api calls, see readme for details
-NWS_GRID_X: "155"
-NWS_GRID_Y: "45"
-USER_AGENT_APP: "myweatherapp" # Used for NWS API calls, can be whatever you want, more unique the better.
-USER_AGENT_EMAIL: "contact@example.com" # Your email, in the event NWS detects excess api calls they can contact you
-ALERT_LAT: "34.0522" # Location settings for alerts, use your coordinates. No more than 4 digits past the decimal point
-ALERT_LON: "-118.2433"
+NWS_OFFICE: "BGM" # Location settings for the weather forecast api calls, see readme for details
+NWS_GRID_X: "84"
+NWS_GRID_Y: "89"
+ALERT_LAT: "37.7654" # Location settings for alerts, use your coordinates. No more than 4 digits past the decimal point
+ALERT_LON: "-100.0151"
 ALERT_CHECK_INTERVAL: 300  # Time in seconds between alert checks (default: 300 = 5 minutes)
+ALERT_INCLUDE_DESCRIPTION: false  # Set to false to exclude the full description from automatically issued alerts
+ALERT_CHANNEL_INDEX: 0  # Channel index for weather alerts, default is 0 (first channel)
 FIRST_MESSAGE_DELAY: 0 # Delay in seconds between receiving a request and sending the first message back.
 MESSAGE_DELAY: 15  # Delay in seconds between subsequent messages of a multi-message response
-ALERT_INCLUDE_DESCRIPTION: false  # Set to false to exclude description from automatically issued alerts
 ENABLE_FULL_ALERT_COMMAND: true  # Set to false to disable the alert request command
+ENABLE_CUSTOM_LOOKUP: true  # Enable/disable custom lat/lon lookup via message
 ENABLE_7DAY_FORECAST: true  # Set to false to disable 7-day forecast module
 ENABLE_5DAY_FORECAST:  true  # Set to false to disable 5-day forecast module
 ENABLE_HOURLY_WEATHER: true  # Set to false to disable hourly weather module
@@ -23,6 +24,6 @@ ENABLE_AUTO_REBOOT: false  # Set to true to enable automatic daily reboot of the
 AUTO_REBOOT_HOUR: 3  # Hour for daily reboot (24-hour format)
 AUTO_REBOOT_MINUTE: 0  # Minute for daily reboot
 REBOOT_DELAY_SECONDS: 10  # Delay in seconds before reboot occurs (recommend not changing this)
-ENABLE_CUSTOM_LOOKUP: true  # Enable/disable custom lat/lon lookup via message
-SHUTDOWN_NODE_ON_EXIT: false  # If true, shutdown node on exit. If false, only close interface
-ALERT_CHANNEL_INDEX: 0  # Channel index for weather alerts, default is 0 (first channel)
+SHUTDOWN_NODE_ON_EXIT: false  # If true, shutdown node on exit. If false, only close the program
+USER_AGENT_APP: "myweatherapp" # Used for NWS API calls, can be whatever you want, more unique the better.
+USER_AGENT_EMAIL: "contact@example.com" # Your email, in the event NWS detects excess api calls they can contact you
