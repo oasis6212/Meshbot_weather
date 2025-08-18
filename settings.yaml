@@ -16,7 +16,7 @@ FIRST_MESSAGE_DELAY: 0 # Delay in seconds between receiving a request and sendin
 MESSAGE_DELAY: 15  # Delay in seconds between subsequent messages of a multi-message response
 ENABLE_ALERT_COMMAND: true  # Set to false to disable the alert request command, automatic alerts will not be affected.
 SHOW_ALERT_COMMAND_IN_MENU: false  # When false, hides the command from the menu but keeps it enabled, if enabled.
-SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU: true  # When false, hides the command from the menu, but it is always enabled
+SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU: false  # When false, hides the command from the menu, but it is always enabled
 ENABLE_7DAY_FORECAST: true  # Set to false to disable 7-day forecast module
 ENABLE_5DAY_FORECAST:  true  # Set to false to disable 5-day forecast module
 ENABLE_HOURLY_WEATHER: true  # Set to false to disable hourly weather module
@@ -27,4 +27,5 @@ AUTO_REBOOT_MINUTE: 0  # Minute for daily reboot
 REBOOT_DELAY_SECONDS: 10  # Delay in seconds before reboot occurs (recommend not changing this)
 SHUTDOWN_NODE_ON_EXIT: false  # If true, shutdown node on exit. If false, only close the program
 USER_AGENT_APP: "myweatherapp" # Used for NWS API calls, can be whatever you want, more unique the better.
+
 USER_AGENT_EMAIL: "contact@example.com" # Your email, in the event NWS detects excess api calls they can contact you
