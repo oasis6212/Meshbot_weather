@@ -63,10 +63,11 @@ Our Mission:
 - Forecasts are generated for any location. Not limited to towns or cities.
 - Optional firewall, when enabled, the bot will only respond to messages from nodes that have been included in its whitelist.
 
-![](img/Automaticgrid.png)
+![](img/automaticgrid.png)
 
 
-
+The program will now automatically determine your NWS grid settings using the alert lat and alert lon coordinates in the
+yaml file. Just leave the NWS grid info blank for automatic configuration. 
 
 
 
@@ -186,14 +187,15 @@ See above under "How to run the program on various operating systems."
 
 ## Location setup for alerts and forecast
 You will need to edit the settings.yaml file. Look for:
-
+```
 ALERT_LAT: "37.7654"
-
 ALERT_LON: "-100.0151"
-
+```
 Change these coordinates to match the location you want weather info and alerts for. Do not use more than four digits 
 past the decimal point. 
 
+NOTE: Since the latest update, this is all the location info the bot requires, you no longer need to fill out the NWS 
+grid info. The program will set it automatically.
 ## Configuration
 
 The ''settings.yaml'' file; it's where you can configure different options. Can be edited in notepad.
@@ -339,7 +341,8 @@ Full command example: "loc 39.0453/-98.2077 hourly"
 Structure: loc {Latitude/longitude Command} command can be any of the regular commands like wind, 2day, 7day etc.
 To ensure compatibility of your coordinates, only use up to 4 digits past the decimal point like in the example.
 
-Special Thanks to [David Fries](https://github.com/davidfries)
+Special Thanks [David Fries](https://github.com/davidfries)
+
 ## Advance setup: How to get your NWS_OFFICE, NWS_GRID_X, and NWS_GRID_Y 
 
 
@@ -414,6 +417,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 This project is neither endorsed by nor supported by Meshtastic.
 
 Meshtastic® is a registered trademark of Meshtastic LLC. Meshtastic software components are released under various 
-
 licenses, see GitHub for details. No warranty is provided - use at your own risk.
-
