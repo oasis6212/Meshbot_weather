@@ -66,9 +66,9 @@ Our Mission:
 ![](img/automaticgrid.png)
 
 
-![](img/newfeatures1.png)
 
-Thanks [davidfries](https://github.com/davidfries)!
+
+
 
 ## Bot interaction
 
@@ -339,7 +339,7 @@ Full command example: "loc 39.0453/-98.2077 hourly"
 Structure: loc {Latitude/longitude Command} command can be any of the regular commands like wind, 2day, 7day etc.
 To ensure compatibility of your coordinates, only use up to 4 digits past the decimal point like in the example.
 
-
+Special Thanks to [David Fries](https://github.com/davidfries)
 ## Advance setup: How to get your NWS_OFFICE, NWS_GRID_X, and NWS_GRID_Y 
 
 
@@ -414,4 +414,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 This project is neither endorsed by nor supported by Meshtastic.
 
 Meshtastic® is a registered trademark of Meshtastic LLC. Meshtastic software components are released under various 
+
 licenses, see GitHub for details. No warranty is provided - use at your own risk.
