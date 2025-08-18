@@ -1,21 +1,22 @@
 MYNODES:
   - "1234567890" #these are examples, fill in with your node numbers if needed, you can add lines as needed.
   - "1234567890"
-FIREWALL: false # If true, only responds to node ids listed under "MYNODES:"
+FIREWALL: false # If true, only responds to node ids listed under "MYNODES"
 DM_MODE: true  # If true, bot responds to direct messages only. Recommend not changing this
 DUTYCYCLE: false  # If true, will limit to 10% duty cycle
-NWS_OFFICE: "BGM" # Location settings for the weather forecast api calls, see readme for details
-NWS_GRID_X: "84"
-NWS_GRID_Y: "89"
-ALERT_LAT: "37.7654" # Location settings for alerts, use your coordinates. No more than 4 digits past the decimal point
+ALERT_LAT: "37.7654" # Primary location settings for alerts and forecast. No more than 4 digits past the decimal point
 ALERT_LON: "-100.0151"
+NWS_OFFICE: "" #Advance setup options, leave blank unless needed. See readme for details.
+NWS_GRID_X: ""
+NWS_GRID_Y: ""
 ALERT_CHECK_INTERVAL: 300  # Time in seconds between alert checks (default: 300 = 5 minutes)
 ALERT_INCLUDE_DESCRIPTION: false  # Set to false to exclude the full description from automatically issued alerts
 ALERT_CHANNEL_INDEX: 0  # Channel index for weather alerts, default is 0 (first channel)
 FIRST_MESSAGE_DELAY: 0 # Delay in seconds between receiving a request and sending the first message back.
 MESSAGE_DELAY: 15  # Delay in seconds between subsequent messages of a multi-message response
-ENABLE_FULL_ALERT_COMMAND: true  # Set to false to disable the alert request command
-ENABLE_CUSTOM_LOOKUP: true  # Enable/disable custom lat/lon lookup via message
+ENABLE_ALERT_COMMAND: true  # Set to false to disable the alert request command, automatic alerts will not be affected.
+SHOW_ALERT_COMMAND_IN_MENU: false  # When false, hides the command from the menu but keeps it enabled, if enabled.
+SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU: true  # When false, hides the command from the menu, but it is always enabled
 ENABLE_7DAY_FORECAST: true  # Set to false to disable 7-day forecast module
 ENABLE_5DAY_FORECAST:  true  # Set to false to disable 5-day forecast module
 ENABLE_HOURLY_WEATHER: true  # Set to false to disable hourly weather module

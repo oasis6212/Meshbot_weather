@@ -36,8 +36,9 @@
 ![](img/wind.png)
 
 
-MeshBot Weather is a spinoff of [MeshBot](https://github.com/868meshbot/meshbot) with a detailed focus on weather. Designed to run on a computer or a 
-Raspberry Pi with a connected Meshtastic device. 
+[MeshBot Weather](https://github.com/oasis6212/Meshbot_weather) is a spinoff of [MeshBot](https://github.com/868meshbot/meshbot) that brings you 
+accurate, real-time forecasts and instant weather alerts. Designed to run on a computer or a 
+Raspberry Pi with a connected Meshtastic radio. 
 
 Our Mission: 
 
@@ -62,9 +63,10 @@ Our Mission:
 - Forecasts are generated for any location. Not limited to towns or cities.
 - Optional firewall, when enabled, the bot will only respond to messages from nodes that have been included in its whitelist.
 
+![](img/automaticgrid.png)
 
-![](img/Newfeatures.png)
 
+![](img/newfeatures1.png)
 
 Thanks [davidfries](https://github.com/davidfries)!
 
@@ -182,6 +184,16 @@ cd meshbot_weather
 
 See above under "How to run the program on various operating systems."
 
+## Location setup for alerts and forecast
+You will need to edit the settings.yaml file. Look for:
+
+ALERT_LAT: "37.7654"
+
+ALERT_LON: "-100.0151"
+
+Change these coordinates to match the location you want weather info and alerts for. Do not use more than four digits 
+past the decimal point. 
+
 ## Configuration
 
 The ''settings.yaml'' file; it's where you can configure different options. Can be edited in notepad.
@@ -195,18 +207,19 @@ MYNODES:
 FIREWALL: false 
 DM_MODE: true  
 DUTYCYCLE: false  
-NWS_OFFICE: "BGM" 
-NWS_GRID_X: "84"
-NWS_GRID_Y: "89"
 ALERT_LAT: "37.7654" 
 ALERT_LON: "-100.0151"
+NWS_OFFICE: "" 
+NWS_GRID_X: ""
+NWS_GRID_Y: ""
 ALERT_CHECK_INTERVAL: 300  
 ALERT_INCLUDE_DESCRIPTION: 
 ALERT_CHANNEL_INDEX: 0  
 FIRST_MESSAGE_DELAY: 0 
 MESSAGE_DELAY: 15  
-ENABLE_FULL_ALERT_COMMAND: true  
-ENABLE_CUSTOM_LOOKUP: true  
+ENABLE_ALERT_COMMAND: true 
+SHOW_ALERT_COMMAND_IN_MENU: false
+SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU: false 
 ENABLE_7DAY_FORECAST: true  
 ENABLE_5DAY_FORECAST:  true  
 ENABLE_HOURLY_WEATHER: true  
@@ -235,11 +248,13 @@ Description
 - DUTYCYCLE: false: If true, limits itself to 10% Dutycycle
 
 
-- NWS_OFFICE: NWS_GRID_X: NWS_GRID_Y: #settings for the weather forecast api calls, see below to learn how to set up.
+- ALERT_LAT: "34.0522" ALERT_LON: "-118.2433" # Location settings for alerts and forecast, put in the latitude and 
+longitude of the area you want coverage for. Make sure you only go up to 4 places past the decimal point on each.
 
 
-- ALERT_LAT: "34.0522" ALERT_LON: "-118.2433" #settings for alerts, put in the latitude, and longitude of the area you 
-want alerts for. Make sure you only go up to 4 places past the decimal point on each.
+- NWS_OFFICE: NWS_GRID_X: NWS_GRID_Y: #Can be left blank. These settings are used for manual entry of the weather 
+forecast api parameters. May be useful if you want your forecast generation for a different area than your alerts or if 
+the automatic configuration fails. See below for more info.  
 
 
 - ALERT_CHECK_INTERVAL: # Time in seconds. How often the alert API is called. NWS does not publish allowable limits. 
@@ -247,7 +262,7 @@ From what I have gathered, they allow up to once a minute for alert checking. Yo
 
 
 - ALERT_INCLUDE_DESCRIPTION: #Set to false to exclude description from alerts. Descriptions will include alot of detail 
-such as every county, town, and area affected. You can expect about 4 or 5 messages when description is set to "true" vs
+such as every county, town, and area affected. You can expect about 4 to 8 messages when description is set to "true" vs
 a single message when set to false. 
 
 
@@ -259,21 +274,24 @@ experimental. Hoping this may help with dropped 1st part of reply's, by giving t
 feel free to experiment with different values. 
 
 
-- MESSAGE_DELAY: Delay in seconds between split messages. To short of a delay can cause messages to arrive out of order.
+- MESSAGE_DELAY: # Delay in seconds between split messages. To short of a delay can cause messages to arrive out of order.
 
 
-- ENABLE_FULL_ALERT_COMMAND: #set to false to disable the "alert" command. Can produce up to 8 messages, may want to
-disable on a high traffic mesh. 
+- ENABLE_ALERT_COMMAND: # Set to false to disable the alert request command, automatic alerts will not be affected.
 
 
-- ENABLE_CUSTOM_LOOKUP: # Enable/disable custom lat/lon lookup via message. More info below.
+- SHOW_ALERT_COMMAND_IN_MENU: # When false, hides the command from the menu but keeps it enabled, if enabled.
+
+
+- SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU: # Set to false to hide the custom lookup command from the menu. Command is always
+accessible.
 
 
 - ENABLE_7DAY_FORECAST: ENABLE_5DAY_FORECAST: ENABLE_HOURLY_WEATHER: # These calls produce 2 to 4 messages each. If you
 are on a high-traffic mesh, you may want to disable these.
 
 
-- FULL_MENU: true  # When true, includes all weather commands. When false, shows only forecast options that return a 
+- FULL_MENU: # When true, includes all weather commands. When false, shows only forecast options that return a 
 single message.
 
 
@@ -303,7 +321,33 @@ unique the better. This is what NWS uses instead of an API key.
 Gives you the opportunity to fix the issue and stop getting throttled.
 
 
-## How to get your NWS_OFFICE, NWS_GRID_X, and NWS_GRID_Y
+
+## Closing the program
+
+Press "Ctrl + c" once to tell the program to close. If Node shutdown is enabled in the settings.yaml The program will 
+command the node to shutdown and give it time to do so.
+
+Pressing "Ctrl + c" twice will force a hard exit of the program.
+
+
+## Using the "Loc" custom location lookup command.
+The loc command allows you to get a forecast for an area that is not the bots primary location. Input the locations 
+latitude and longitude along with the forecast type you want. 
+
+Full command example: "loc 39.0453/-98.2077 hourly"
+
+Structure: loc {Latitude/longitude Command} command can be any of the regular commands like wind, 2day, 7day etc.
+To ensure compatibility of your coordinates, only use up to 4 digits past the decimal point like in the example.
+
+
+## Advance setup: How to get your NWS_OFFICE, NWS_GRID_X, and NWS_GRID_Y 
+
+
+Note: As of the latest update, these values are automatically set based on the ALERT_LAT and ALERT_LON coordinates. 
+Leave the grid parameters blank to enable automatic configuration. Only enter grid coordinates if you want to override 
+the automatic settings.
+
+
 To get your NWS office and grid coordinates:
 1. Go to (https://weather.gov)
 2. Enter your address
@@ -325,24 +369,6 @@ Enter this info into the settings.yaml file.
 
 For the alert settings in the settings.yaml file, enter your gps coordinates or use the coordinates you retrieved 
 earlier in this process. Use no more than four digits after the decimal point.
-
-
-## Closing the program
-
-Press "Ctrl + c" once to tell the program to close. If Node shutdown is enabled in the settings.yaml The program will 
-command the node to shutdown and give it time to do so.
-
-Pressing "Ctrl + c" twice will force a hard exit of the program.
-
-
-## Using the "Loc" custom location lookup command.
-The loc command allows you to get a forecast for an area that is not the bots primary location. Input the locations 
-latitude and longitude along with the forecast type you want. 
-
-Full command example: "loc 39.0453/-98.2077 hourly"
-
-Structure: loc {Latitude/longitude Command} command can be any of the regular commands like wind, 2day, 7day etc.
-To ensure compatibility of your coordinates, only use up to 4 digits past the decimal point like in the example.
 
 
 ## API Handling details
@@ -388,6 +414,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 This project is neither endorsed by nor supported by Meshtastic.
 
 Meshtastic® is a registered trademark of Meshtastic LLC. Meshtastic software components are released under various 
-
 licenses, see GitHub for details. No warranty is provided - use at your own risk.
-

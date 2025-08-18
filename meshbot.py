@@ -34,6 +34,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
+print(r"""
+-----------------Welcome to Meshbot Weather------------------        
+""")
 
 
 
@@ -58,6 +61,89 @@ except ImportError:
 
 import serial.tools.list_ports
 import requests
+
+
+
+def infer_nws_grid_from_coords(settings, logger=None):
+    """
+    Fill in NWS_OFFICE, NWS_GRID_X, NWS_GRID_Y using ALERT_LAT and ALERT_LON.
+    Only runs if any NWS_* value is missing or empty. Updates settings in-place.
+    Returns True if values were inferred and updated; otherwise False.
+    """
+    # If already complete, nothing to do
+    have_office = bool(str(settings.get("NWS_OFFICE", "")).strip())
+    have_x = bool(str(settings.get("NWS_GRID_X", "")).strip())
+    have_y = bool(str(settings.get("NWS_GRID_Y", "")).strip())
+    if have_office and have_x and have_y:
+        office = str(settings.get("NWS_OFFICE", "")).strip()
+        grid_x = str(settings.get("NWS_GRID_X", "")).strip()
+        grid_y = str(settings.get("NWS_GRID_Y", "")).strip()
+        msg = f"Using NWS grid from settings.yaml: office={office}, grid=({grid_x}, {grid_y})"
+        logger_obj = globals().get("logger")
+        if logger_obj:
+            logger_obj.info(msg)
+        else:
+            print(msg)
+        return False
+
+    # Need lat/lon for inference
+    lat_raw = settings.get("ALERT_LAT")
+    lon_raw = settings.get("ALERT_LON")
+
+
+    if not lat_raw or not lon_raw:
+        if logger:
+            logger.warning("Cannot determine NWS grid: ALERT_LAT/ALERT_LON not set.")
+        return False
+
+    # Prepare request
+    try:
+        lat = float(lat_raw)
+        lon = float(lon_raw)
+    except (TypeError, ValueError):
+        if logger:
+            logger.warning("Cannot infer NWS grid: ALERT_LAT/ALERT_LON are not valid numbers.")
+        return False
+
+    lat_s = f"{lat:.4f}"
+    lon_s = f"{lon:.4f}"
+    url = f"https://api.weather.gov/points/{lat_s},{lon_s}"
+
+    user_agent_app = str(settings.get("USER_AGENT_APP", "meshbot-weather"))
+    user_agent_email = str(settings.get("USER_AGENT_EMAIL", "contact@example.com"))
+    headers = {
+        "Accept": "application/geo+json",
+        "User-Agent": f"({user_agent_app}, {user_agent_email})",
+    }
+
+    try:
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        props = data.get("properties", {}) or {}
+        office = props.get("gridId")
+        grid_x = props.get("gridX")
+        grid_y = props.get("gridY")
+
+        if not office or grid_x is None or grid_y is None:
+            if logger:
+                logger.warning("NWS Points API did not return grid info; leaving NWS_* unchanged.")
+            return False
+
+        # Update as strings to match settings.yaml style
+        settings["NWS_OFFICE"] = str(office)
+        settings["NWS_GRID_X"] = str(grid_x)
+        settings["NWS_GRID_Y"] = str(grid_y)
+
+        if logger:
+            logger.info(f"NWS grid auto-config: office={office}, x={grid_x}, y={grid_y}")
+        return True
+
+    except requests.RequestException as e:
+        if logger:
+            logger.warning(f"Failed to fetch NWS grid from Points API: {e}")
+        return False
+
 
 from modules.temperature_24hour import Temperature24HourFetcher
 from modules.forecast_2day import Forecast2DayFetcher
@@ -107,10 +193,21 @@ alerts = None
 with open("settings.yaml", "r") as file:
     settings = yaml.safe_load(file)
 
+ALERT_LAT = settings.get("ALERT_LAT")
+ALERT_LON = settings.get("ALERT_LON")
+
+
+logger.info(f"ALERT_LAT:{ALERT_LAT} ALERT_LON:{ALERT_LON}")
+
+
+infer_nws_grid_from_coords(settings, logger=logger if 'logger' in globals() else None)
+
 MYNODES = settings.get("MYNODES")
 DM_MODE = settings.get("DM_MODE")
 FIREWALL = settings.get("FIREWALL")
 DUTYCYCLE = settings.get("DUTYCYCLE")
+
+
 
 NWS_OFFICE = settings.get("NWS_OFFICE", "HNX")
 NWS_GRID_X = settings.get("NWS_GRID_X", "67")
@@ -120,9 +217,14 @@ USER_AGENT_APP = settings.get("USER_AGENT_APP", "myweatherapp")
 USER_AGENT_EMAIL = settings.get("USER_AGENT_EMAIL", "contact@example.com")
 USER_AGENT = f"({USER_AGENT_APP}, {USER_AGENT_EMAIL})"
 
-logger.info(f"DUTYCYCLE: {DUTYCYCLE}")
-logger.info(f"DM_MODE: {DM_MODE}")
-logger.info(f"FIREWALL: {FIREWALL}")
+
+
+#logger.info(f"DUTYCYCLE: {DUTYCYCLE}")
+#logger.info(f"DM_MODE: {DM_MODE}")
+#logger.info(f"FIREWALL: {FIREWALL}")
+#logger.info(f"MYNODES: {MYNODES}")
+
+
 
 transmission_count = 0
 cooldown = False
@@ -336,10 +438,20 @@ def message_listener(packet, interface):
                                   "rain - 24h precipitation\n" \
                                   "temp - 24h temperature\n"
                     # Add alert command if enabled
-                    if settings.get('ENABLE_FULL_ALERT_COMMAND', True):
+                    if settings.get("ENABLE_ALERT_COMMAND", True) and settings.get(
+                            "SHOW_ALERT_COMMAND_IN_MENU", True):
                         menu_text_2 += "alert - show active alerts\n"
-                    if settings.get('ENABLE_CUSTOM_LOOKUP', False):
+                    if settings.get('SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU', True):
                         menu_text_2 += "loc lat/lon - custom location lookup\n"
+                    #check if both show_alert and loc command are disabled
+                    if not settings.get('SHOW_ALERT_COMMAND_IN_MENU', True) and not settings.get(
+                                'SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU',
+                                                                                                False):
+                        combined_menu = f"{menu_text_1}\n{menu_text_2}".strip()
+                        # If both commands are disabled send menu without using split_message
+                        interface.sendText(combined_menu,wantAck=True, destinationId=sender_id)
+                        return
+
                     if settings.get('FULL_MENU', True):
                         combined_menu = menu_text_1 + "\n" + menu_text_2
                         messages = split_message(combined_menu, message_type="Menu")
@@ -350,10 +462,10 @@ def message_listener(packet, interface):
                             "4day - 4 day forecast\n" \
                             "temp - 24h temperature\n" \
                             "rain - 24h precipitation"
-                        if settings.get('ENABLE_FULL_ALERT_COMMAND', True):
+                        if settings.get('ENABLE_ALERT_COMMAND', True):
                             simple_menu += "\nalert - show active alerts"
                         if settings.get('ENABLE_CUSTOM_LOOKUP', False):
-                            simple_menu += "loc lat/lon - custom location lookup"
+                            simple_menu += "\nloc lat/lon - custom location lookup"
                         messages = split_message(simple_menu, message_type="Menu")
                         send_message_sequence(messages, message_type="Menu")
                 elif "loc" in message:
@@ -447,7 +559,7 @@ def message_listener(packet, interface):
                     if alerts:
                         if not alerts.broadcast_full_alert(sender_id):
                             time.sleep(first_message_delay)
-                            if not settings.get('ENABLE_FULL_ALERT_COMMAND', True):
+                            if not settings.get('ENABLE_ALERT_COMMAND', True):
                                 messages = split_message(
                                     "The full-alert command is disabled in settings.", message_type="Alert"
                                 )
@@ -477,7 +589,7 @@ def message_listener(packet, interface):
 def signal_handler(sig, frame):
     """Perform a graceful shutdown when CTRL+C is pressed"""
     global interface
-    logger.info("\nInitiating shutdown...")
+    logger.info("\nClosing program. Please wait...")
     try:
         if interface is not None:
             if settings.get('SHUTDOWN_NODE_ON_EXIT', False):
@@ -492,7 +604,7 @@ def signal_handler(sig, frame):
                     logger.error(f"Error sending shutdown command: {e}")
 
             else:
-                logger.info("Node shutdown disabled in settings, skipping shutdown command")
+                logger.info("Node shutdown disabled in settings, skipping sending power off command.")
 
             logger.info("Closing Meshtastic interface...")
             interface.close()
@@ -536,7 +648,7 @@ def main():
             logger.info("No serial ports found.")
         exit(0)
 
-    logger.info(f"Press CTRL-C to terminate the program")
+    logger.info(f"Press CTRL-C to close the program")
 
     # Create interface
     if args.host:

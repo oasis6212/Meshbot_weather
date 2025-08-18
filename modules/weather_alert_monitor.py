@@ -81,7 +81,7 @@ class WeatherAlerts:
     def broadcast_full_alert(self, destination_id):
         """Broadcast the full alert information including description."""
         # Check if full-alert command is enabled
-        if not self.settings.get('ENABLE_FULL_ALERT_COMMAND', True):
+        if not self.settings.get('ENABLE_ALERT_COMMAND', True):
             return False  # Do nothing if full-alert command is disabled
 
         # Check if there's a current alert
