@@ -63,7 +63,7 @@ Our Mission:
 - Forecasts are generated for any location. Not limited to towns or cities.
 - Optional firewall, when enabled, the bot will only respond to messages from nodes that have been included in its whitelist.
 
-![](img/automaticgrid.png)
+![](img/Automaticgrid.png)
 
 
 The program will now automatically determine your NWS grid settings using the alert lat and alert lon coordinates in the
@@ -417,4 +417,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 This project is neither endorsed by nor supported by Meshtastic.
 
 Meshtastic® is a registered trademark of Meshtastic LLC. Meshtastic software components are released under various 
+
 licenses, see GitHub for details. No warranty is provided - use at your own risk.
