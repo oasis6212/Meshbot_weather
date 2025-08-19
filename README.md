@@ -66,7 +66,7 @@ Our Mission:
 ![](img/Automaticgrid.png)
 
 
-The program will now automatically determine your NWS grid settings using the alert lat and alert lon coordinates in the
+The program will now automatically determine your NWS grid settings using the alert_lat and alert_lon coordinates in the
 yaml file. Just leave the NWS grid info blank for automatic configuration. 
 
 
@@ -419,3 +419,4 @@ This project is neither endorsed by nor supported by Meshtastic.
 Meshtastic® is a registered trademark of Meshtastic LLC. Meshtastic software components are released under various 
 
 licenses, see GitHub for details. No warranty is provided - use at your own risk.
+
