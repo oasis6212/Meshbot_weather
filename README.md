@@ -37,7 +37,9 @@
 
 
 [MeshBot Weather](https://github.com/oasis6212/Meshbot_weather) is a spinoff of [MeshBot](https://github.com/868meshbot/meshbot) that brings you 
-accurate, real-time forecasts and instant weather alerts. Designed to run on a computer or a 
+accurate, real-time forecasts and instant weather alerts. 
+
+Designed to run on a computer or a 
 Raspberry Pi with a connected Meshtastic radio. 
 
 Our Mission: 
@@ -66,8 +68,8 @@ Our Mission:
 ![](img/Automaticgrid.png)
 
 
-The program will now automatically determine your NWS grid settings using the alert_lat and alert_lon coordinates in the
-yaml file. Just leave the NWS grid info blank for automatic configuration. 
+The program can now automatically determine your NWS grid settings using the ALERT_LAT and ALERT_LON coordinates in the
+settings.yaml file. Leave the NWS grid info blank for automatic configuration. 
 
 
 
@@ -286,7 +288,7 @@ feel free to experiment with different values.
 
 
 - SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU: # Set to false to hide the custom lookup command from the menu. Command is always
-accessible.
+accessible. TIP, if you keep this and "Show_alert_command_in_menu" disabled, your menu will be a single message.
 
 
 - ENABLE_7DAY_FORECAST: ENABLE_5DAY_FORECAST: ENABLE_HOURLY_WEATHER: # These calls produce 2 to 4 messages each. If you
@@ -312,7 +314,7 @@ changing this.
 
 
 - SHUTDOWN_NODE_ON_EXIT: false #Set to true to shut down the node when you close the program. You will have to manually
-turn the node back on before running the program again.
+turn the node back on or cycle its power before running the program again.
 
 
 - USER_AGENT_APP: "myweatherapp" #used for NWS (National Weather Service) API calls, can be whatever you want, more 
@@ -417,6 +419,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 This project is neither endorsed by nor supported by Meshtastic.
 
 Meshtastic® is a registered trademark of Meshtastic LLC. Meshtastic software components are released under various 
-
 licenses, see GitHub for details. No warranty is provided - use at your own risk.
-
