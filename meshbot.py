@@ -35,7 +35,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 print(r"""
------------------Welcome to Meshbot Weather------------------        
+------------------------Welcome to Meshbot Weather-------------------------
+For more info about this project visit https://github.com/oasis6212/Meshbot_weather       
 """)
 
 
@@ -386,7 +387,7 @@ def message_listener(packet, interface):
         if packet is not None and packet["decoded"].get("portnum") == "TEXT_MESSAGE_APP":
             message = packet["decoded"]["text"].lower()
             sender_id = packet["from"]
-            
+
             # Check if it's a DM
             is_direct_message = False
             if "to" in packet:
@@ -616,7 +617,7 @@ def signal_handler(sig, frame):
 def main():
     global interface, alerts  # Add alerts to global declaration
     signal.signal(signal.SIGINT, signal_handler)
-    
+
     logger.info("Starting program.")
     reset_transmission_count()
     if settings.get('DUTYCYCLE', False):
@@ -649,7 +650,7 @@ def main():
         exit(0)
 
     logger.info(f"Press CTRL-C to close the program")
-
+    logger.info(f"Connecting to Meshtastic node...")
     # Create interface
     if args.host:
         interface = meshtastic.tcp_interface.TCPInterface(hostname=ip_host, noProto=False)
@@ -658,6 +659,7 @@ def main():
 
     global MYNODE
     MYNODE = get_my_node_id(interface)
+    #logger.info("Connected to Meshtastic Node:")
     logger.info(f"Automatically detected MYNODE ID: {MYNODE}")
 
     if DM_MODE and not MYNODE:
@@ -675,7 +677,7 @@ def main():
 
     try:
         my_info = interface.getMyNodeInfo()
-        logger.info("Connected to Meshtastic Node:")
+    #   logger.info("Connected to Meshtastic Node:")
         logger.info(f"Node Name: {my_info.get('user', {}).get('longName', 'Unknown')}")
     except Exception as e:
         logger.error(f"Failed to get node info: {e}")
