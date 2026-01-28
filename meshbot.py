@@ -36,7 +36,7 @@ SOFTWARE.
 """
 print(r"""
 ------------------------Welcome to Meshbot Weather-------------------------
-For more info about this project visit https://github.com/oasis6212/Meshbot_weather       
+For more info about this project visit https://github.com/oasis6212/Meshbot_weather      
 """)
 
 
@@ -62,6 +62,56 @@ except ImportError:
 
 import serial.tools.list_ports
 import requests
+import base64
+import re
+
+
+CURRENT_VERSION = "1.0.0"
+
+
+def check_for_updates():
+    """
+    Check for version updates
+    """
+    try:
+        # Get meshbot.py content from GitHub
+        url = "https://api.github.com/repos/oasis6212/Meshbot_weather/contents/meshbot.py"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+
+        # Decode the file content
+        file_data = response.json()
+        encoded_content = file_data['content']
+        decoded_content = base64.b64decode(encoded_content).decode('utf-8')
+
+        # Extract version from CURRENT_VERSION line using regex
+        version_pattern = r'CURRENT_VERSION\s*=\s*["\']([^"\']+)["\']'
+        version_match = re.search(version_pattern, decoded_content)
+
+        if not version_match:
+           # print("No CURRENT_VERSION found in meshbot.py on GitHub")
+            return
+
+        github_version = version_match.group(1)
+        local_version = CURRENT_VERSION
+
+
+
+        if github_version != local_version:
+            print("UPDATE AVAILABLE!")
+            print(f"Download the latest version at https://github.com/oasis6212/meshbot_weather")
+
+        else:
+           # print("You have the latest version")
+            return
+    except Exception as e:
+        print(f"Could not check for updates: {e}")
+
+
+
+check_for_updates()
+
+
 
 
 
@@ -126,6 +176,15 @@ def infer_nws_grid_from_coords(settings, logger=None):
         grid_x = props.get("gridX")
         grid_y = props.get("gridY")
 
+        relative_location = props.get("relativeLocation", {})
+        relative_props = relative_location.get("properties", {}) if relative_location else {}
+        city = relative_props.get("city")
+        state = relative_props.get("state")
+        distance = relative_props.get("distance", {}).get("value")
+        distance_miles = 0
+
+        if distance is not None:
+            distance_miles = round (distance / 1609.344)
         if not office or grid_x is None or grid_y is None:
             if logger:
                 logger.warning("NWS Points API did not return grid info; leaving NWS_* unchanged.")
@@ -135,9 +194,13 @@ def infer_nws_grid_from_coords(settings, logger=None):
         settings["NWS_OFFICE"] = str(office)
         settings["NWS_GRID_X"] = str(grid_x)
         settings["NWS_GRID_Y"] = str(grid_y)
+        settings["city"] = str(city)
+        settings["state"] = str(state)
 
         if logger:
-            logger.info(f"NWS grid auto-config: office={office}, x={grid_x}, y={grid_y}")
+            logger.info(f"NWS grid: office={office}, x={grid_x}, y={grid_y}")
+            logger.info(f"Near city - {city},{state} ({distance_miles} miles away)")
+            #logger.info(f"Note: Weather data is generated for your exact location, the city displayed is just a reference.")
         return True
 
     except requests.RequestException as e:
@@ -196,6 +259,7 @@ with open("settings.yaml", "r") as file:
 
 ALERT_LAT = settings.get("ALERT_LAT")
 ALERT_LON = settings.get("ALERT_LON")
+ADVERTISE_ALLOWED_NODE = settings.get('ADVERTISE_ALLOWED_NODE', None)
 
 
 logger.info(f"ALERT_LAT:{ALERT_LAT} ALERT_LON:{ALERT_LON}")
@@ -204,9 +268,10 @@ logger.info(f"ALERT_LAT:{ALERT_LAT} ALERT_LON:{ALERT_LON}")
 infer_nws_grid_from_coords(settings, logger=logger if 'logger' in globals() else None)
 
 MYNODES = settings.get("MYNODES")
-DM_MODE = settings.get("DM_MODE")
+DM_MODE = settings.get("DM_MODE", True)
 FIREWALL = settings.get("FIREWALL")
 DUTYCYCLE = settings.get("DUTYCYCLE")
+pending_acks = {}
 
 
 
@@ -374,7 +439,125 @@ def get_custom_lookup(message):
         return f"Custom location lookup: lat={lat}, lon={lon}, office={office}, grid=({grid_x},{grid_y})\nSupported commands: {', '.join(fetchers.keys())}"
 
 
-def message_listener(packet, interface):
+def handle_ack_packets(packet):
+    """Handle incoming ACK packets (Routing packets)"""
+    try:
+        decoded = packet.get('decoded', {})
+
+        # Check if this is a routing/ACK packet
+        if decoded.get('portnum') == 'ROUTING_APP':
+            routing = decoded.get('routing', {})
+            req_id = decoded.get('requestId')  # requestId is in the decoded dict!
+
+            if req_id and req_id in pending_acks:
+                error_reason = routing.get('errorReason', 'NONE')
+                if error_reason == 'NONE':
+                    #logger.info(f"SUCCESS: ACK received for Packet ID {req_id}!")
+                    pending_acks[req_id].set()
+                else:
+                    logger.warning(f"ACK with error '{error_reason}' for Packet ID {req_id}")
+                    pending_acks[req_id].set()  # Still signal completion even if error
+                return True
+    except Exception as e:
+        logger.error(f"Error handling ACK packet: {e}")
+
+    return False
+
+
+def send_with_ack_retry(interface, dest_id, text, max_tries=3, timeout=30):
+    """Send message with ACK and retry logic"""
+    for attempt in range(1, max_tries + 1):
+        ack_event = threading.Event()
+
+        logger.info(f"Attempt {attempt}/{max_tries}: Sending to {dest_id}...")
+
+        try:
+            # Send and get the packet ID
+            packet_info = interface.sendText(text, destinationId=dest_id, wantAck=True)
+            sent_id = packet_info.id if hasattr(packet_info, 'id') else packet_info
+
+            #logger.info(f"   Packet ID: {sent_id}")
+
+            # Register this ID for the listener to find
+            pending_acks[sent_id] = ack_event
+
+            # Wait for the ACK
+            is_acked = ack_event.wait(timeout=timeout)
+
+            # Clean up tracking
+            if sent_id in pending_acks:
+                del pending_acks[sent_id]
+
+            if is_acked:
+                logger.info(f"Message ACK'd on attempt {attempt}.")
+                return True
+            else:
+                logger.warning(f"Attempt {attempt} timed out after {timeout}s.")
+                if attempt < max_tries:
+                    logger.info("Retrying in 5 seconds...")
+                    time.sleep(5)
+
+        except Exception as e:
+            logger.error(f"Error sending message on attempt {attempt}: {e}")
+            if attempt < max_tries:
+                time.sleep(5)
+
+    logger.error("Failed to deliver message after all attempts.")
+    return False
+
+
+def build_menu():
+    """Build the menu text based on current settings"""
+    # Build multi-message section
+    multi_message_commands = []
+    if settings.get('ENABLE_HOURLY_WEATHER', True):
+        multi_message_commands.append("hourly - 24h detailed")
+    if settings.get('ENABLE_7DAY_FORECAST', True):
+        multi_message_commands.append("7day - 7 day simple")
+    if settings.get('ENABLE_5DAY_FORECAST', True):
+        multi_message_commands.append("5day - 5 day detailed")
+    multi_message_commands.append("wind - 24h wind")
+
+    # Build single-message section
+    single_message_commands = [
+        "2day - 2 day detailed",
+        "4day - 4 day simple",
+        "rain - 24h precip",
+        "temp - 24h temp"
+    ]
+
+    # Add optional commands to single-message section
+    if settings.get("ENABLE_ALERT_COMMAND", True) and settings.get("SHOW_ALERT_COMMAND_IN_MENU", True):
+        single_message_commands.append("alert - show active alerts")
+    if settings.get('SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU', True):
+        single_message_commands.append("loc lat/lon - custom location lookup")
+
+    # Choose menu style based on FULL_MENU setting
+    if settings.get('FULL_MENU', True):
+        # Full menu with both sections
+        menu_parts = []
+        if multi_message_commands:
+            menu_parts.append("    --Multi-Message--\n" + "\n".join(multi_message_commands))
+        menu_parts.append("    --Single Message--\n" + "\n".join(single_message_commands))
+        return "\n\n".join(menu_parts)
+    else:
+        # Simple menu - single messages only
+        simple_commands = [
+            "2day - 2 day forecast",
+            "4day - 4 day forecast",
+            "temp - 24h temperature",
+            "rain - 24h precipitation"
+        ]
+        if settings.get('ENABLE_ALERT_COMMAND', True):
+            simple_commands.append("alert - show active alerts")
+        if settings.get('SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU', True):
+            simple_commands.append("loc lat/lon - custom location lookup")
+
+        return "  --Weather Commands--\n" + "\n".join(simple_commands)
+
+
+
+def message_listener(packet, interface=None):
     global transmission_count
     global cooldown
     global DM_MODE
@@ -384,9 +567,37 @@ def message_listener(packet, interface):
     global alerts
 
     try:
-        if packet is not None and packet["decoded"].get("portnum") == "TEXT_MESSAGE_APP":
+        if handle_ack_packets(packet):
+            return  # If it was an ACK, we're done
+        decoded = packet.get('decoded', {})
+        if decoded.get('portnum') == 'TEXT_MESSAGE_APP':
             message = packet["decoded"]["text"].lower()
             sender_id = packet["from"]
+
+            # Convert decimal sender_id to hex format with ! prefix
+            hex_sender_id = f"!{hex(sender_id)[2:]}"
+
+            node_data = interface.nodes.get(hex_sender_id)
+
+            if node_data:
+                # Get user name and signal metrics
+                sender_name = node_data["user"].get("longName", f"Node {hex_sender_id}")
+                hops = node_data.get("hopsAway", "unknown")
+
+                # Get SNR from node_data
+                snr = node_data.get("snr", "unknown")
+
+                # Get RSSI from lastReceived data
+                rssi = node_data.get("lastReceived", {}).get("rxRssi", "unknown")
+
+                # Check for MQTT information
+                mqtt_status = ""
+                if packet.get("viaMqtt", False):
+                    mqtt_status = ", via MQTT"
+
+                sender_info = f"{sender_name} (hops: {hops}, SNR: {snr}, RSSI: {rssi}{mqtt_status})"
+            else:
+                sender_info = f"Node {hex_sender_id}"
 
             # Check if it's a DM
             is_direct_message = False
@@ -395,7 +606,7 @@ def message_listener(packet, interface):
 
             # Only log if it's a DM
             if is_direct_message:
-                logger.info(f"Message {packet['decoded']['text']} from {packet['from']}")
+                logger.info(f"Message {packet['decoded']['text']} from {sender_info}")
                 logger.info(f"transmission count {transmission_count}")
 
             # Enforce DM_MODE
@@ -420,104 +631,164 @@ def message_listener(packet, interface):
                         if i < len(messages) - 1:  # Don't delay after last message
                             time.sleep(subsequent_message_delay)
 
+                #Helper function to send a sequence of messages and listening for an ack
+                def send_message_sequence_with_ack(interface, dest_id, messages, message_type=""):
+                    first_message_delay = settings.get('FIRST_MESSAGE_DELAY', 3)
+                    subsequent_message_delay = settings.get('MESSAGE_DELAY', 10)
+
+                    success_count = 0
+
+                    for i, msg in enumerate(messages):
+                        if i == 0:  # First message
+                            time.sleep(first_message_delay)
+
+                        # Send each message with ACK retry
+                        success = send_with_ack_retry(interface, dest_id, msg, max_tries=3, timeout=30)
+
+                        if success:
+                            success_count += 1
+                            logger.info(f"Message {i + 1}/{len(messages)} ACK'd")
+                        else:
+                            logger.error(f"Failed to deliver message {i + 1}/{len(messages)}")
+
+
+                        if i < len(messages) - 1:  # Don't delay after last message
+                            time.sleep(subsequent_message_delay)
+
+                    logger.info(f"Sequence complete: {success_count}/{len(messages)} messages delivered")
+                    return success_count == len(messages)  # Return True if all succeeded
+
                 if "test" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
-                    # Send the temperature message directly without split_message
-                    interface.sendText(" ACK", wantAck=True, destinationId=sender_id)
+                    response = f"Received (hops: {hops}, SNR: {snr}, RSSI: {rssi}{mqtt_status})"
+                    threading.Thread(
+                        target=send_with_ack_retry,
+                        args=(interface, sender_id, response),
+                        daemon=True
+                    ).start()
+                    return
+
                 elif "?" in message or "menu" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
-                    menu_text_1 = "    --Multi-Message--\n" \
-                                  "hourly - 24h outlook\n" \
-                                  "7day - 7 day simple\n" \
-                                  "5day - 5 day detailed\n" \
-                                  "wind - 24h wind\n"
-                    menu_text_2 = "    --Single Message--\n" \
-                                  "2day - 2 day detailed\n" \
-                                  "4day - 4 day simple\n" \
-                                  "rain - 24h precipitation\n" \
-                                  "temp - 24h temperature\n"
-                    # Add alert command if enabled
-                    if settings.get("ENABLE_ALERT_COMMAND", True) and settings.get(
-                            "SHOW_ALERT_COMMAND_IN_MENU", True):
-                        menu_text_2 += "alert - show active alerts\n"
-                    if settings.get('SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU', True):
-                        menu_text_2 += "loc lat/lon - custom location lookup\n"
-                    #check if both show_alert and loc command are disabled
-                    if not settings.get('SHOW_ALERT_COMMAND_IN_MENU', True) and not settings.get(
-                                'SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU',
-                                                                                                False):
-                        combined_menu = f"{menu_text_1}\n{menu_text_2}".strip()
-                        # If both commands are disabled send menu without using split_message
-                        interface.sendText(combined_menu,wantAck=True, destinationId=sender_id)
-                        return
 
-                    if settings.get('FULL_MENU', True):
-                        combined_menu = menu_text_1 + "\n" + menu_text_2
-                        messages = split_message(combined_menu, message_type="Menu")
-                        send_message_sequence(messages, message_type="Menu")
+                    menu_text = build_menu()
+
+                    # Check if menu fits in single message (around 200 chars)
+                    if len(menu_text) <= 201:
+                        # Single message menu
+                        final_message = f"{menu_text}"
+
+
+                        threading.Thread(
+                            target=send_with_ack_retry,
+                            args=(interface, sender_id, f"{menu_text}"),
+                            daemon=True
+                        ).start()
                     else:
-                        simple_menu = "  --Weather Commands--\n" \
-                            "2day - 2 day forecast\n" \
-                            "4day - 4 day forecast\n" \
-                            "temp - 24h temperature\n" \
-                            "rain - 24h precipitation"
-                        if settings.get('ENABLE_ALERT_COMMAND', True):
-                            simple_menu += "\nalert - show active alerts"
-                        if settings.get('ENABLE_CUSTOM_LOOKUP', False):
-                            simple_menu += "\nloc lat/lon - custom location lookup"
-                        messages = split_message(simple_menu, message_type="Menu")
-                        send_message_sequence(messages, message_type="Menu")
+                        # Multi-message menu
+                        messages = split_message(menu_text, message_type="Menu")
+                        threading.Thread(
+                            target=send_message_sequence_with_ack,
+                            args=(interface, sender_id, messages, "Menu"),
+                            daemon=True
+                        ).start()
+                    return
+
                 elif "loc" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
                     custom_lookup_result = get_custom_lookup(message)
                     messages = split_message(str(custom_lookup_result), message_type="Custom")
                     send_message_sequence(messages, message_type="Custom")
+
                 elif "temp" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
                     # Send the temperature message directly without split_message
-                    interface.sendText(get_temperature_24hour(), wantAck=True, destinationId=sender_id)
+                    #interface.sendText(get_temperature_24hour(), wantAck=True, destinationId=sender_id)
+                    response = (get_temperature_24hour())
+                    threading.Thread(
+                        target=send_with_ack_retry,
+                        args=(interface, sender_id, response),
+                        daemon=True
+                    ).start()
+                    return
 
                 elif "2day" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
                     # Send the 2-day forecast directly without split_message
-                    interface.sendText(get_forecast_2day(), wantAck=True, destinationId=sender_id)
+                    #interface.sendText(get_forecast_2day(), wantAck=True, destinationId=sender_id)
+                    response = (get_forecast_2day())
+                    threading.Thread(
+                        target=send_with_ack_retry,
+                        args=(interface, sender_id, response),
+                        daemon=True
+                    ).start()
+                    return
 
                 elif "hourly" in message:
                     if settings.get('ENABLE_HOURLY_WEATHER', True):
                         transmission_count += 1
                         weather_data = get_emoji_weather()
                         messages = split_message(weather_data, message_type="Hourly")
-                        send_message_sequence(messages, message_type="Hourly")
+                        # Send the message sequence with ACK in a separate thread
+                        threading.Thread(
+                            target=send_message_sequence_with_ack,
+                            args=(interface, sender_id, messages, "Hourly"),
+                            daemon=True
+                        ).start()
+                        return
                     else:
                         time.sleep(first_message_delay)
                         messages = split_message("Hourly weather module is disabled.", message_type="Hourly")
-                        send_message_sequence(messages, message_type="Hourly")
+                        threading.Thread(
+                            target=send_message_sequence_with_ack,
+                            args=(interface, sender_id, messages, "Hourly"),
+                            daemon=True
+                        ).start()
+
                 elif "rain" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
                     # Send the rain message directly without split_message
-                    interface.sendText(get_rain_chance(), wantAck=True, destinationId=sender_id)
+                    response = (get_rain_chance())
+                    threading.Thread(
+                        target=send_with_ack_retry,
+                        args=(interface, sender_id, response),
+                        daemon=True
+                    ).start()
+                    return
 
                 elif "5day" in message:
                     if settings.get('ENABLE_5DAY_FORECAST', True):
                         transmission_count += 1
-                        weather_messages = nws_weather_fetcher_5day.get_daily_weather()
-                        messages = split_message('\n'.join(weather_messages), message_type="5day")
-                        send_message_sequence(messages, message_type="5day")
+                        #send_message_sequence(weather_messages)
+                        weather_data = nws_weather_fetcher_5day.get_daily_weather()
+                        messages = split_message(weather_data, message_type="5day")
+                        threading.Thread(
+                            target=send_message_sequence_with_ack,
+                            args=(interface, sender_id, messages, "5day"),
+                            daemon=True
+                        ).start()
                     else:
                         time.sleep(first_message_delay)
                         messages = split_message("5-day forecast module is disabled.", message_type="5day")
                         send_message_sequence(messages, message_type="5day")
+
                 elif "4day" in message:
                     transmission_count += 1
                     time.sleep(first_message_delay)
                     # Send the 4-day forecast directly without split_message
-                    interface.sendText(get_forecast_4day(), wantAck=True, destinationId=sender_id)
+                    weather_data = (get_forecast_4day())
+                    threading.Thread(
+                        target=send_with_ack_retry,
+                        args=(interface, sender_id, weather_data),
+                        daemon=True
+                    ).start()
+                    return
 
                 elif "wind" in message:
                     transmission_count += 1
@@ -525,63 +796,135 @@ def message_listener(packet, interface):
                     if isinstance(weather_data, list):
                         weather_text = '\n'.join(weather_data)
                         messages = split_message(weather_text, message_type="Wind")
-                        send_message_sequence(messages, message_type="Wind")
                     else:
-
-
-                        time.sleep(first_message_delay)
                         messages = split_message(weather_data, message_type="Wind")
-                        send_message_sequence(messages, message_type="Wind")
-                elif "advertise" in message:
-                    transmission_count += 1
-                    interface.sendText(
-                        "Hello all! I am a weather bot that does weather alerts and forecasts. "
-                        "You can DM me \"?\" for a list of my forecast commands.\n\n"
-                        "For more information, check me out on Github. https://github.com/oasis6212/Meshbot_weather",
-                        wantAck=True,
-                        destinationId="^all"
-                    )
+
+                    threading.Thread(
+                        target=send_message_sequence_with_ack,
+                        args=(interface, sender_id, messages, "Wind"),
+                        daemon=True
+                    ).start()
 
                 elif "7day" in message:
                     if settings.get('ENABLE_7DAY_FORECAST', True):
                         transmission_count += 1
                         weather_data = forecast_7day.get_weekly_emoji_weather()
                         messages = split_message(weather_data, message_type="7day")
-                        send_message_sequence(messages, message_type="7day")
+                        threading.Thread(
+                            target=send_message_sequence_with_ack,
+                            args=(interface, sender_id, messages, "7day"),
+                            daemon=True
+                        ).start()
                     else:
-                        time.sleep(first_message_delay)
                         messages = split_message("7-day forecast module is disabled.", message_type="7day")
-                        send_message_sequence(messages, message_type="7day")
+                        threading.Thread(
+                            target=send_message_sequence_with_ack,
+                            args=(interface, sender_id, messages, "7day"),
+                            daemon=True
+                        ).start()
+
+                elif "advertise" in message:
+                    # Check if ADVERTISE_ALLOWED_NODE is configured and if the sender matches
+                    if ADVERTISE_ALLOWED_NODE is not None:
+                        sender_node_id = str(packet['from'])
+                        if sender_node_id != ADVERTISE_ALLOWED_NODE:
+                            logger.info(f"Advertise command ignored - sender {sender_node_id} not authorized")
+                            return
+
+                        transmission_count += 1
+                        time.sleep(first_message_delay)
+                        advertise_message = (
+                        "Hello all! I am a weather bot that does weather alerts and forecasts. "
+                        "You can DM me \"?\" for a list of my forecast commands.\n\n"
+                        "For more information, check me out on Github. https://github.com/oasis6212/Meshbot_weather"
+
+                    )
+                    threading.Thread(
+                        target=send_with_ack_retry,
+                        args=(interface, "^all", advertise_message),
+                        daemon=True
+                    ).start()
+
                 elif "alert-status" in message:
                     transmission_count += 1
-                    interface.sendText(get_weather_alert_status(), wantAck=True, destinationId=sender_id)
+                    response = (get_weather_alert_status())
+                    threading.Thread(
+                        target=send_with_ack_retry,
+                        args=(interface, sender_id, response),
+                        daemon=True
+                    ).start()
+                    return
+
                 elif "alert" in message:
                     transmission_count += 1
                     if alerts:
-                        if not alerts.broadcast_full_alert(sender_id):
+                        # Check if there's an active alert and the command is enabled
+                        if not alerts.current_alert or not settings.get('ENABLE_ALERT_COMMAND', True):
+                            # No active alert or command disabled - send fallback message
                             time.sleep(first_message_delay)
                             if not settings.get('ENABLE_ALERT_COMMAND', True):
-                                messages = split_message(
-                                    "The full-alert command is disabled in settings.", message_type="Alert"
-                                )
-                                send_message_sequence(messages, message_type="Alert")
+                                alert_message = "The full-alert command is disabled in settings."
                             else:
-                                messages = split_message(
-                                    "No active alerts at this time.", message_type="Alert"
-                                )
-                                send_message_sequence(messages, message_type="Alert")
+                                alert_message = "No active alerts at this time."
+                            # Check if it's a single message or needs splitting
+                            if len(alert_message) <= 200:
+                                # Single message - use ACK retry
+                                final_message = f"--Alert--\n{alert_message}"
+                                threading.Thread(
+                                    target=send_with_ack_retry,
+                                    args=(interface, sender_id, final_message),
+                                    daemon=True
+                                ).start()
+                            else:
+                                # Multi-message - use sequence with ACK
+                                messages = split_message(alert_message, message_type="Alert")
+                                threading.Thread(
+                                    target=send_message_sequence_with_ack,
+                                    args=(interface, sender_id, messages, "Alert"),
+                                    daemon=True
+                                ).start()
+                        else:
+                            # There is an active alert - send it using ACK functions
+                            time.sleep(first_message_delay)
+                            alert_props = alerts.current_alert['properties']
+                            full_message = (
+                                f"{alert_props['headline']}\n"
+                                f"Description: {alert_props['description']}"
+                            )
+                            # Check if it's a single message or needs splitting
+                            if len(full_message) <= 200:
+                                # Single message - use ACK retry
+                                final_message = f"--Alert--\n{full_message}"
+                                threading.Thread(
+                                    target=send_with_ack_retry,
+                                    args=(interface, sender_id, final_message),
+                                    daemon=True
+                                ).start()
+                            else:
+                                # Multi-message - use sequence with ACK
+                                messages = split_message(full_message, message_type="Alert")
+                                threading.Thread(
+                                    target=send_message_sequence_with_ack,
+                                    args=(interface, sender_id, messages, "Alert"),
+                                    daemon=True
+                                ).start()
+
                 else:
                     # If it's a DM but doesn't match any command, send a random help message
                     if is_direct_message:
                         transmission_count += 1
-                        interface.sendText(
-                            random.choice(UNRECOGNIZED_MESSAGES),
-                            wantAck=True,
-                            destinationId=sender_id
-                        )
+                        response = random.choice(UNRECOGNIZED_MESSAGES)  # Remove the extra ()
+                        threading.Thread(
+                            target=send_with_ack_retry,
+                            args=(interface, sender_id, response),
+                            daemon=True
+                        ).start()
+                        return
+
+
     except KeyError as e:
         node_name = interface.getMyNodeInfo().get('user', {}).get('longName', 'Unknown')
-        logger.error(f'Attached node "{node_name}" was unable to decode incoming message, possible key mismatch in its node-database.')
+        logger.error(f'Attached node "{node_name}" was unable to decode an incoming direct message, possible key mismatch in its node-database.')
         return
     except Exception as e:
         logger.error(f"Unexpected error in message_listener: {e}")
@@ -615,7 +958,7 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 def main():
-    global interface, alerts  # Add alerts to global declaration
+    global interface, alerts
     signal.signal(signal.SIGINT, signal_handler)
 
     logger.info("Starting program.")
@@ -631,36 +974,59 @@ def main():
 
     if args.port:
         serial_ports = [args.port]
-        logger.info(f"Serial port {serial_ports}\n")
+        logger.info(f"Serial port {serial_ports}")
     elif args.host:
         ip_host = args.host
         print(ip_host)
-        logger.info(f"Meshtastic API host {ip_host}\n")
+        logger.info(f"Meshtastic API host {ip_host}")
     else:
         serial_ports = find_serial_ports()
         if serial_ports:
-            logger.info("Available serial ports:")
+            print("\nAvailable serial ports:")
             for port in serial_ports:
-                logger.info(port)
-            logger.info(
-                "Im not smart enough to work out the correct port, please use the --port argument with a relevent meshtastic port"
-            )
+                print(port)
+            print("\nPlease use one of these ports with the --port argument:")
+            print("  Example Windows: python meshbot.py --port COM3")
+            print("  Example Linux: python meshbot.py --port /dev/ttyUSB0")
+            print("  Example MacOS: python meshbot.py --port /dev/tty.usbserial-0001\n")
+
         else:
-            logger.info("No serial ports found.")
+            logger.info("No serial ports found. Please check if:\n"
+            "1. Your Meshtastic device is connected\n"
+            "2. You have the correct drivers installed\n"
+            "3. The device is recognized by your system")
         exit(0)
 
-    logger.info(f"Press CTRL-C to close the program")
-    logger.info(f"Connecting to Meshtastic node...")
-    # Create interface
-    if args.host:
-        interface = meshtastic.tcp_interface.TCPInterface(hostname=ip_host, noProto=False)
-    else:
-        interface = meshtastic.serial_interface.SerialInterface(serial_ports[0])
+    logger.info("Use CTRL-C to close the program")
+    logger.info("Connecting to Meshtastic node...")
+    
+    try:
+        # Create interface
+        if args.host:
+            interface = meshtastic.tcp_interface.TCPInterface(hostname=ip_host, noProto=False)
+        else:
+            interface = meshtastic.serial_interface.SerialInterface(serial_ports[0])
+    except serial.serialutil.SerialException as e:
+        logger.error(
+            f"Error connecting to port {serial_ports[0]}:\n"
+            "1. Check if the correct port is specified\n"
+            "2. Make sure no other program is using the port\n"
+            "3. Verify the device is properly connected\n"
+        )
+
+        #logger.error(f"Technical details: {str(e)}")
+        exit(1)
+    except Exception as e:
+        logger.error(f"\nUnexpected error while connecting to device:")
+        logger.error(str(e))
+        exit(1)
+
+    # Rest of the main function remains the same...
 
     global MYNODE
     MYNODE = get_my_node_id(interface)
-    #logger.info("Connected to Meshtastic Node:")
-    logger.info(f"Automatically detected MYNODE ID: {MYNODE}")
+    logger.info("Connected")
+    logger.info(f"Node ID: {MYNODE}")
 
     if DM_MODE and not MYNODE:
         logger.error("DM_MODE is enabled but failed to get MYNODE ID. Please check connection to device.")
@@ -746,8 +1112,8 @@ def get_weather_alert_status():
     Returns a status message indicating if the system is working or not.
     """
     try:
-        # Build the API URL and parameters similar to weather_alert_monitor.py
-        base_url = f"https://api.weather.gov/alerts/active"
+        # Build the API URL and parameters
+        base_url = "https://api.weather.gov/alerts/active"
         params = {
             "point": f"{settings.get('ALERT_LAT')},{settings.get('ALERT_LON')}"
         }
@@ -756,7 +1122,7 @@ def get_weather_alert_status():
         }
 
         # Test the API connection
-        response = requests.get(base_url, params=params, headers=headers)
+        response = requests.get(base_url, params=params, headers=headers, timeout=10)
         response.raise_for_status()
 
         # If we get here, the connection is working
@@ -768,7 +1134,6 @@ def get_weather_alert_status():
     except Exception as e:
         logger.error(f"Weather Alert Monitor Status Check Failed: {str(e)}")
         return "🔴 Alert System: Service interrupted - check logs"
-
 
 if __name__ == "__main__":
     main()

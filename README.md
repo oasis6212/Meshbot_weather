@@ -35,12 +35,12 @@
 
 ![](img/wind.png)
 
+[MeshBot Weather](https://github.com/oasis6212/Meshbot_weather) brings
+accurate, real-time forecasts and instant weather alerts to Meshtastic. 
 
-[MeshBot Weather](https://github.com/oasis6212/Meshbot_weather) is a spinoff of [MeshBot](https://github.com/868meshbot/meshbot) that brings you 
-accurate, real-time forecasts and instant weather alerts. 
+Designed to run on a Raspberry Pi or a pc with a connected Meshtastic radio. 
 
-Designed to run on a computer or a 
-Raspberry Pi with a connected Meshtastic radio. 
+
 
 Our Mission: 
 
@@ -53,25 +53,23 @@ Our Mission:
 ## Features
 
 - Utilizes the National Weather Service, the official source for NOAA-issued EAS alerts.
+- Forecasts are generated for any location. Not limited to towns or cities.
 - Automatically sends severe weather alerts to all devices on the mesh network.
 - Weather forecast: A selection of Multi-day and hourly forecasts available on demand.
 - Easily accessible menu that can be called by sending "menu" or "?" to the bot.
 - Help message reply when the bot receives an unrecognized instruction.
+- Custom location lookup command to get forecast for other areas outside the bot's configured primary area.
 - Alert system test command to varify the weather alert api is responding and is configured correctly.
 - Detailed multi-message outputs for deployments on private and low-traffic meshes.
 - Includes a variety of single message options for use on meshes that are high traffic / high utilization.
 - Ability to enforce single message use by disabling multi-message outputs via the settings.yaml file. 
 - Configurable node daily reboot function. Useful if your current firmware is a little less than stable.
-- Forecasts are generated for any location. Not limited to towns or cities.
 - Optional firewall, when enabled, the bot will only respond to messages from nodes that have been included in its whitelist.
 
-![](img/Automaticgrid.png)
+![](img/Newfeatures1.png)
 
-
-The program can now automatically determine your NWS grid settings using the ALERT_LAT and ALERT_LON coordinates in the
-settings.yaml file. Leave the NWS grid info blank for automatic configuration. 
-
-
+The bot will now listen for either another node repeating the message, or the destination node acknowledging 
+receiving it. Whichever comes first. If not received, the bot will retry sending the message. Times out after three attempts.
 
 ## Bot interaction
 
@@ -95,7 +93,7 @@ NOTE: Commands are not case-sensitive.
 
 Commands below are not listed in the help menu:
 - alert-status : Runs a check on the alert system. Returns ok if good or error code if an issue is found
-- test : bot will return an acknowledgement of message received
+- test : bot will return an acknowledgement of message received along with hop count and signal strength.
 - advertise : When received, the bot will message the public channel introducing itself along with its menu command.
 
 
@@ -188,7 +186,7 @@ cd meshbot_weather
 See above under "How to run the program on various operating systems."
 
 ## Location setup for alerts and forecast
-You will need to edit the settings.yaml file. Look for:
+You will need to edit the settings.yaml file using notepad. At the top of the file you'll find:
 ```
 ALERT_LAT: "37.7654"
 ALERT_LON: "-100.0151"
@@ -196,8 +194,8 @@ ALERT_LON: "-100.0151"
 Change these coordinates to match the location you want weather info and alerts for. Do not use more than four digits 
 past the decimal point. 
 
-NOTE: Since the latest update, this is all the location info the bot requires, you no longer need to fill out the NWS 
-grid info. The program will set it automatically.
+NOTE: These location settings are the **only** thing that need to be changed in the settings.yaml file. Highly recommend 
+leaving all other settings alone till you have experimented with the program with its default setup.
 ## Configuration
 
 The ''settings.yaml'' file; it's where you can configure different options. Can be edited in notepad.
@@ -205,19 +203,16 @@ The ''settings.yaml'' file; it's where you can configure different options. Can 
 Example Content:
 
 ```
+ALERT_LAT: "37.7654" 
+ALERT_LON: "-100.0151"
+
 MYNODES:
   - "1234567890" 
   - "1234567890"
 FIREWALL: false 
-DM_MODE: true  
 DUTYCYCLE: false  
-ALERT_LAT: "37.7654" 
-ALERT_LON: "-100.0151"
-NWS_OFFICE: "" 
-NWS_GRID_X: ""
-NWS_GRID_Y: ""
 ALERT_CHECK_INTERVAL: 300  
-ALERT_INCLUDE_DESCRIPTION: 
+ALERT_INCLUDE_DESCRIPTION: false
 ALERT_CHANNEL_INDEX: 0  
 FIRST_MESSAGE_DELAY: 0 
 MESSAGE_DELAY: 15  
@@ -239,26 +234,17 @@ USER_AGENT_EMAIL: "contact@example.com"
 ```
 
 Description
+- ALERT_LAT: "34.0522" ALERT_LON: "-118.2433" # Location settings for alerts and forecast, put in the latitude and 
+longitude of the area you want coverage for. Make sure you only go up to 4 places past the decimal point on each.
 
-- MYNODES = A list of nodes (in int/number form) that are permitted to interact with the bot
+
+- MYNODES = A list of nodes (in integer/number form) that are permitted to interact with the bot
 
 
 - FIREWALL = false: if true only responds to MYNODES
 
 
-- DM_MODE = true: Only respond to DMs; false: responds to all traffic (recommend keeping this set to true)
-
-
 - DUTYCYCLE: false: If true, limits itself to 10% Dutycycle
-
-
-- ALERT_LAT: "34.0522" ALERT_LON: "-118.2433" # Location settings for alerts and forecast, put in the latitude and 
-longitude of the area you want coverage for. Make sure you only go up to 4 places past the decimal point on each.
-
-
-- NWS_OFFICE: NWS_GRID_X: NWS_GRID_Y: #Can be left blank. These settings are used for manual entry of the weather 
-forecast api parameters. May be useful if you want your forecast generation for a different area than your alerts or if 
-the automatic configuration fails. See below for more info.  
 
 
 - ALERT_CHECK_INTERVAL: # Time in seconds. How often the alert API is called. NWS does not publish allowable limits. 
@@ -273,9 +259,8 @@ a single message when set to false.
 - ALERT_CHANNEL_INDEX: #Channel index for weather alerts, default is 0 (first channel)
 
 
-- FIRST_MESSAGE_DELAY: # Delay in seconds between receiving a request and sending the first message back. This is 
-experimental. Hoping this may help with dropped 1st part of reply's, by giving the network a few seconds to settle down.
-feel free to experiment with different values. 
+- FIRST_MESSAGE_DELAY: # Delay in seconds between receiving a request and sending the response back.
+
 
 
 - MESSAGE_DELAY: # Delay in seconds between split messages. To short of a delay can cause messages to arrive out of order.
@@ -335,7 +320,7 @@ Pressing "Ctrl + c" twice will force a hard exit of the program.
 
 
 ## Using the "Loc" custom location lookup command.
-The loc command allows you to get a forecast for an area that is not the bots primary location. Input the locations 
+The loc command allows you to get a forecast for an area that is not the bots configured location. Input the locations 
 latitude and longitude along with the forecast type you want. 
 
 Full command example: "loc 39.0453/-98.2077 hourly"
@@ -343,43 +328,36 @@ Full command example: "loc 39.0453/-98.2077 hourly"
 Structure: loc {Latitude/longitude Command} command can be any of the regular commands like wind, 2day, 7day etc.
 To ensure compatibility of your coordinates, only use up to 4 digits past the decimal point like in the example.
 
-Special Thanks [David Fries](https://github.com/davidfries)
+Special Thanks to [David Fries](https://github.com/davidfries) for the addition of this feature.
 
-## Advance setup: How to get your NWS_OFFICE, NWS_GRID_X, and NWS_GRID_Y 
+## "Near city" 
+When you launch the bot you will see "Near city" displayed. For most users, this will probably match their actual 
+location. If you are in the middle of no where, this is the closest city to your location. It 
+is included as a reference. Forecast and alerts are still based on the exact coordinates you entered into the 
+settings.yaml file.  
 
+## ERROR - Attached node was unable to decode an incoming message, possible key mismatch in its node-database.
+This issue is actually occurring outside the Meshbot_Weather program. This is an 
+issue of the two nodes direct messaging each other in general. I will say for extra clarification that private key 
+mismatch (or no private key info shared yet) does not affect messages sent over the main channel's group chat. So, 
+two nodes may be able to communicate in the main channel, but simultaneously still not be able to direct message each 
+other if there is an issue with the private keys.
 
-Note: As of the latest update, these values are automatically set based on the ALERT_LAT and ALERT_LON coordinates. 
-Leave the grid parameters blank to enable automatic configuration. Only enter grid coordinates if you want to override 
-the automatic settings.
+Generally, what is occurring is either the connected node has not yet received the private key for the node that 
+is messaging it, or the key it has is the wrong one. If your connected node previously shared private key information 
+with another node, and that other node was later wiped and generated a new private key, your node will no longer be able
+to decode direct messages. This is because it is still using the old key.
 
+This can also happen in reverse where the connected node itself was wiped and generated a new private key and the 
+node trying to message it still has the connected node's old key causing a mismatch.
 
-To get your NWS office and grid coordinates:
-1. Go to (https://weather.gov)
-2. Enter your address
-3. The URL will change to something like: `https://forecast.weather.gov/MapClick.php?lat=XX.XXXX&lon=YY.YYYY`
-4. Visit (https://api.weather.gov/points/XX.XXXX,YY.YYYY) (using your coordinates)  
-
-Example: https://api.weather.gov/points/36.3741,-119.2702 
-(If you know them, you can replace the coordinates in this link here with yours and skip the first part. Open the link, 
-go into your browser address bar and replace the coordinates with yours. Then refresh the page. Don't enter 
-more than 4 digits past the decimal point in your latitude and longitude numbers.)
-
-5. Look for the `gridId` (NWS_OFFICE) and `gridX` (NWS_GRID_X),`gridY` (NWS_GRID_Y) values in the response. You will 
-have to scroll down the page some.
-
-![](./img/Grid.png)
-
-
-Enter this info into the settings.yaml file.
-
-For the alert settings in the settings.yaml file, enter your gps coordinates or use the coordinates you retrieved 
-earlier in this process. Use no more than four digits after the decimal point.
-
+The go-to solution is wiping both node's databases or at least the entries for the nodes in question. Once they discover
+each other again the problem will be solved.
 
 ## API Handling details
 
 To prevent excessive api calls, the bot will check if it currently has the data being requested and if it is
-less than an hour old. If both those conditions are met, the bot will use its catched data. If not, it will refresh the
+less than an hour old. If both those conditions are met, the bot will use its cache data. If not, it will refresh the
 weather info. It will not produce more than two api calls per hour for weather forecast. One for the hourly data and the 
 other for the daily data. If there are no mesh side weather requests, then no api calls are made.
 
@@ -398,15 +376,16 @@ Most weather api's use a key to identify your specific instance. Instead, the NW
 convenient because you don't have to actually sign up for anything, and instead just use unique info instead. 
 
 The bot will work with the defaults here, but if you run it with these, your api calls will be added up along with 
-everyone else running the defaults. This could possibly cause your API request to be throttled.  
-
-
+everyone else running the defaults. This could possibly cause your API request to be throttled. 
 
 ## Contributors
 
 - [oasis6212](https://github.com/oasis6212), [868meshbot](https://github.com/868meshbot), [davidfries](https://github.com/davidfries)
 
 ## Acknowledgements
+
+Special thanks to [868meshbot](https://github.com/868meshbot) whose [MeshBot](https://github.com/868meshbot/meshbot) 
+program was foundational in the making of this.
 
 This project utilizes the Meshtastic Python library, which provides communication capabilities for Meshtastic devices. 
 For more information about Meshtastic, visit [meshtastic.org](https://meshtastic.org/).

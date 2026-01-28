@@ -72,7 +72,9 @@ class WeatherAlerts:
                 )
                 if i < len(messages):  # Don't sleep after last message
                     time.sleep(self.message_delay)
-
+            # Print to console when weather alert is issued
+            logger.info(f"Alert sent to mesh")
+            logger.info(f"{alert_props['headline']}")
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to fetch weather alerts: {str(e)}")
         except Exception as e:
@@ -81,7 +83,7 @@ class WeatherAlerts:
     def broadcast_full_alert(self, destination_id):
         """Broadcast the full alert information including description."""
         # Check if full-alert command is enabled
-        if not self.settings.get('ENABLE_ALERT_COMMAND', True):
+        if not self.settings.get('ENABLE_FULL_ALERT_COMMAND', True):
             return False  # Do nothing if full-alert command is disabled
 
         # Check if there's a current alert

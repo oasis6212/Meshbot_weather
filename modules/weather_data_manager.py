@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta
 
 class WeatherDataManager:
-    def __init__(self, office="HNX", grid_x="67", grid_y="80", user_agent="(myweatherapp, contact@example.com)"):
+    def __init__(self, office="", grid_x="", grid_y="", user_agent="(myweatherapp, contact@example.com)"):
         self.hourly_url = f"https://api.weather.gov/gridpoints/{office}/{grid_x},{grid_y}/forecast/hourly"
         self.daily_url = f"https://api.weather.gov/gridpoints/{office}/{grid_x},{grid_y}/forecast"
         self.headers = {"User-Agent": user_agent}

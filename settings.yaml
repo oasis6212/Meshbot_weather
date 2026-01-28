@@ -1,22 +1,19 @@
-MYNODES:
-  - "1234567890" #these are examples, fill in with your node numbers if needed, you can add lines as needed.
-  - "1234567890"
-FIREWALL: false # If true, only responds to node ids listed under "MYNODES"
-DM_MODE: true  # If true, bot responds to direct messages only. Recommend not changing this
-DUTYCYCLE: false  # If true, will limit to 10% duty cycle
 ALERT_LAT: "37.7654" # Primary location settings for alerts and forecast. No more than 4 digits past the decimal point
 ALERT_LON: "-100.0151"
-NWS_OFFICE: "" #Advance setup options, leave blank unless needed. See readme for details.
-NWS_GRID_X: ""
-NWS_GRID_Y: ""
+#Everything below this line is preconfigured, recommend running the defaults till you're comfortable with the program.
+MYNODES:
+  - "1234567890" #these are examples, fill in with your node ids for whitelist if needed, you can add lines.
+  - "1234567890"
+FIREWALL: false # If true, only responds to node ids listed under "MYNODES"
+DUTYCYCLE: false  # If true, will limit to 10% duty cycle
 ALERT_CHECK_INTERVAL: 300  # Time in seconds between alert checks (default: 300 = 5 minutes)
 ALERT_INCLUDE_DESCRIPTION: false  # Set to false to exclude the full description from automatically issued alerts
 ALERT_CHANNEL_INDEX: 0  # Channel index for weather alerts, default is 0 (first channel)
 FIRST_MESSAGE_DELAY: 0 # Delay in seconds between receiving a request and sending the first message back.
-MESSAGE_DELAY: 15  # Delay in seconds between subsequent messages of a multi-message response
+MESSAGE_DELAY: 10  # Delay in seconds between subsequent messages of a multi-message response
 ENABLE_ALERT_COMMAND: true  # Set to false to disable the alert request command, automatic alerts will not be affected.
-SHOW_ALERT_COMMAND_IN_MENU: false  # When false, hides the command from the menu but keeps it enabled, if enabled.
-SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU: false  # When false, hides the command from the menu, but it is always enabled
+SHOW_ALERT_COMMAND_IN_MENU: true  # When false, hides the command from the menu but keeps it enabled, if enabled.
+SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU: true  # When false, hides the command from the menu, but it is always enabled
 ENABLE_7DAY_FORECAST: true  # Set to false to disable 7-day forecast module
 ENABLE_5DAY_FORECAST:  true  # Set to false to disable 5-day forecast module
 ENABLE_HOURLY_WEATHER: true  # Set to false to disable hourly weather module
@@ -25,7 +22,9 @@ ENABLE_AUTO_REBOOT: false  # Set to true to enable automatic daily reboot of the
 AUTO_REBOOT_HOUR: 3  # Hour for daily reboot (24-hour format)
 AUTO_REBOOT_MINUTE: 0  # Minute for daily reboot
 REBOOT_DELAY_SECONDS: 10  # Delay in seconds before reboot occurs (recommend not changing this)
-SHUTDOWN_NODE_ON_EXIT: false  # If true, shutdown node on exit. If false, only close the program
+SHUTDOWN_NODE_ON_EXIT: false  # If true, shutdown connected node on exit. If false, only close the program
 USER_AGENT_APP: "myweatherapp" # Used for NWS API calls, can be whatever you want, more unique the better.
-
 USER_AGENT_EMAIL: "contact@example.com" # Your email, in the event NWS detects excess api calls they can contact you
+ADVERTISE_ALLOWED_NODE: "1128078452" #node id in integer form, Advertise command will only respond to this node.
+#If you set "SHOW_ALERT_COMMAND_IN_MENU: false" and "SHOW_CUSTOM_LOOKUP_COMMAND_IN_MENU: false" the menu will be a
+#single message instead of two.

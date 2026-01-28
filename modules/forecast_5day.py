@@ -10,12 +10,12 @@ class NWSWeatherFetcher5Day:
         try:
             data = self.weather_manager.get_daily_data()
             if not data:
-                return ["Error: Unable to fetch weather data"]
+                return "Error: Unable to fetch weather data"
 
             periods = data['properties']['periods'][:10]  # Get 10 periods (5 days)
 
             result = []
-            for period in periods:
+            for i, period in enumerate(periods):
                 name = period['name']
                 temp = period['temperature']
                 forecast = period['shortForecast']
@@ -32,34 +32,16 @@ class NWSWeatherFetcher5Day:
                     else:
                         output = f"{name} High {temp}. {forecast}"
 
+                # Add double newline before all periods except the first one
+                if i > 0:
+                    output = "\n\n" + output
+
                 result.append(output)
 
-            # Format with double newlines before splitting
-            formatted_text = "\n\n".join(result)
-
-            # Split into chunks that fit within character limit
-            chunks = []
-            while formatted_text:
-                if len(formatted_text) <= 175:
-                    chunks.append(formatted_text)
-                    break
-                else:
-                    # Find last double newline before 175 chars
-                    split_point = formatted_text[:175].rfind('\n\n')
-                    if split_point == -1:
-                        split_point = 175
-
-                    chunks.append(formatted_text[:split_point])
-                    formatted_text = formatted_text[split_point:].lstrip()
-
-            # Add message numbering
-            messages = []
-            for i, chunk in enumerate(chunks):
-                messages.append(f"--({i + 1}/{len(chunks)}) 5-Day\n\n{chunk}")
-
-            return messages
+            # Join all results into a single string, just like the 2-day command
+            return "".join(result)
 
         except Exception as e:
             error_msg = f"Error fetching weather data: {str(e)}"
             logging.error(error_msg)
-            return [error_msg]
+            return error_msg

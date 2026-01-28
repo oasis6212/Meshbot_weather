@@ -75,7 +75,7 @@ class EmojiWeatherFetcher:
                 if dt <= current_time:
                     continue
 
-                if count >= 23:  # Limit to 23 entries
+                if count >= 25:  # Limit to 23 entries
                     break
 
                 time_format = self._format_time(dt)
