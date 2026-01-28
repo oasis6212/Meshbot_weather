@@ -230,7 +230,7 @@ REBOOT_DELAY_SECONDS: 10
 SHUTDOWN_NODE_ON_EXIT: false  
 USER_AGENT_APP: "myweatherapp" 
 USER_AGENT_EMAIL: "contact@example.com" 
-
+ADVERTISE_ALLOWED_NODE: "1234567890" 
 ```
 
 Description
@@ -309,6 +309,8 @@ unique the better. This is what NWS uses instead of an API key.
 - USER_AGENT_EMAIL: "contact@example.com" #your email, in the event NWS detects excess api calls they will throttle you.
 Gives you the opportunity to fix the issue and stop getting throttled.
 
+
+- ADVERTISE_ALLOWED_NODE: "1128078452" #node id in integer form, Advertise command will only respond to this node.
 
 
 ## Closing the program
