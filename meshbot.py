@@ -464,7 +464,7 @@ def handle_ack_packets(packet):
     return False
 
 
-def send_with_ack_retry(interface, dest_id, text, max_tries=3, timeout=30):
+def send_with_ack_retry(interface, dest_id, text, max_tries=3, timeout=15):
     """Send message with ACK and retry logic"""
     for attempt in range(1, max_tries + 1):
         ack_event = threading.Event()
@@ -494,8 +494,8 @@ def send_with_ack_retry(interface, dest_id, text, max_tries=3, timeout=30):
             else:
                 logger.warning(f"Attempt {attempt} timed out after {timeout}s.")
                 if attempt < max_tries:
-                    logger.info("Retrying in 5 seconds...")
-                    time.sleep(5)
+                    logger.info("Retrying")
+                    time.sleep(0)
 
         except Exception as e:
             logger.error(f"Error sending message on attempt {attempt}: {e}")
@@ -643,7 +643,7 @@ def message_listener(packet, interface=None):
                             time.sleep(first_message_delay)
 
                         # Send each message with ACK retry
-                        success = send_with_ack_retry(interface, dest_id, msg, max_tries=3, timeout=30)
+                        success = send_with_ack_retry(interface, dest_id, msg, max_tries=3, timeout=15)
 
                         if success:
                             success_count += 1
