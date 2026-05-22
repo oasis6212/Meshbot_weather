@@ -4,36 +4,39 @@
 
 
 
+<details>
+  <summary>Click to expand images</summary>
+
+  ![](img/1.png)
 
 
-![](img/1.png)
+  ![](img/2.png)
 
 
-![](img/2.png)
+  ![](img/hourly.png)
 
 
-![](img/hourly.png)
+  ![](img/5day.png)
 
 
-![](img/5day.png)
+  ![](img/temp.png)
 
 
-![](img/temp.png)
+  ![](img/4day.png)
 
 
-![](img/4day.png)
+  ![](img/alertstatus.png)
 
 
-![](img/alertstatus.png)
+  ![](img/help.png)
 
 
-![](img/help.png)
+  ![](img/menu.png)
 
 
-![](img/menu.png)
+  ![](img/wind.png)
 
-
-![](img/wind.png)
+</details>
 
 [MeshBot Weather](https://github.com/oasis6212/Meshbot_weather) brings
 accurate, real-time forecasts and instant weather alerts to Meshtastic. 
