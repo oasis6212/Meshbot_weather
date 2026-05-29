@@ -4,7 +4,8 @@
 
 
 
-
+<details>
+  <summary>Click to expand images</summary>
 
 ![](img/1.png)
 
@@ -34,6 +35,8 @@
 
 
 ![](img/wind.png)
+
+</details>
 
 [MeshBot Weather](https://github.com/oasis6212/Meshbot_weather) brings
 accurate, real-time forecasts and instant weather alerts to Meshtastic. 
