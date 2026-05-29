@@ -5,7 +5,7 @@
 
 
 <details>
-  <summary>Click to expand images</summary>
+  <summary>Click here to see screen shots</summary>
 
 ![](img/1.png)
 
